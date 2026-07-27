@@ -20,7 +20,11 @@
 class WelcomeController < ApplicationController
   self.main_menu = false
 
-  skip_before_action :check_if_login_required, only: [:robots]
+  skip_before_action :check_if_login_required, only: [:robots, :service_worker]
+  skip_before_action :check_password_change, :check_twofa_activation, only: [:service_worker]
+  # A service worker is fetched as a plain GET with no X-Requested-With header,
+  # which the guard against cross-origin <script> embedding would reject.
+  skip_after_action :verify_same_origin_request, only: [:service_worker]
 
   def index
     @news = News.latest User.current
@@ -29,5 +33,16 @@ class WelcomeController < ApplicationController
   def robots
     @projects = Project.visible(User.anonymous) unless Setting.login_required?
     render :layout => false, :content_type => 'text/plain'
+  end
+
+  # Redmine ships no service worker, but a browser that registered one under a
+  # previous deployment of the same origin keeps requesting /sw.js on every
+  # navigation. A 404 does not unregister it, so it stays in control of the site
+  # and may keep serving assets from its own caches. Answering with a worker that
+  # drops those caches and unregisters itself lets such clients recover on their
+  # own, without the users having to clear anything by hand.
+  def service_worker
+    response.headers['Cache-Control'] = 'no-store'
+    render :layout => false, :content_type => 'text/javascript'
   end
 end

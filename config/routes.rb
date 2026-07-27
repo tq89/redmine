@@ -417,6 +417,7 @@ Rails.application.routes.draw do
   match 'uploads', :to => 'attachments#upload', :via => :post
 
   get 'robots.:format', :to => 'welcome#robots', :constraints => {:format => 'txt'}
+  get 'sw.:format', :to => 'welcome#service_worker', :constraints => {:format => 'js'}
 
   if Rails.env.development?
     get 'rails/info/svg_icons', :to => 'svg_icons#index'

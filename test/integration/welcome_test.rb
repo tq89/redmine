@@ -58,4 +58,27 @@ class WelcomeTest < Redmine::IntegrationTest
       assert_response :not_found
     end
   end
+
+  def test_service_worker_should_unregister_itself
+    get '/sw.js'
+    assert_response :success
+    assert_equal 'text/javascript', @response.media_type
+    assert_equal 'no-store', @response.headers['Cache-Control']
+    assert_include 'self.registration.unregister()', @response.body
+  end
+
+  def test_service_worker_when_login_is_required
+    with_settings :login_required => '1' do
+      get '/sw.js'
+      assert_response :success
+      assert_equal 'text/javascript', @response.media_type
+    end
+  end
+
+  def test_service_worker_should_not_respond_to_formats_other_than_js
+    %w(sw.json sw).each do |file|
+      get "/#{file}"
+      assert_response :not_found
+    end
+  end
 end
