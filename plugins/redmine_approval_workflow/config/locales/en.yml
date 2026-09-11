@@ -17,6 +17,10 @@ en:
   label_status_change: "Status change"
   label_order: "Order"
   label_all_projects: "All projects"
+  label_pending_approval_plural: "Issues awaiting my signature"
+  label_pending_approval_with_count: "To sign (%{count})"
+  label_no_pending_approval: "Nothing is waiting for your signature."
+  warning_pending_approvals_capped: "Only the first %{count} issues are listed. Sign some and reload to see the rest."
 
   button_approve: "Approve"
   button_reject_approval: "Reject"
@@ -61,6 +65,8 @@ en:
   setting_max_extension_days: "Maximum days per extension"
   setting_max_extension_count: "Maximum number of extensions"
   setting_require_extension_reason: "Require a reason for extensions"
+  setting_show_pending_approvals: "Show the signing reminder in the top menu"
+  text_show_pending_approvals_hint: "Turn off on a constrained server to save one lookup per page load."
 
   permission_view_approval_workflow: "View approval route"
   permission_extend_issue_due_date: "Extend issue due date"

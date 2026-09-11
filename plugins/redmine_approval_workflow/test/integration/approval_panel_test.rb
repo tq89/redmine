@@ -106,6 +106,75 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     assert_equal [2, 3], route.steps.map(&:issue_status_id)
   end
 
+  def test_top_menu_shows_the_reminder_with_a_count
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    log_user('jsmith', 'jsmith')
+
+    get '/'
+
+    assert_response :success
+    assert_select '#top-menu a.pending-approvals-alert' do |links|
+      assert_match(/\(\d+\)/, links.first.text, 'reminder must carry a count')
+    end
+  end
+
+  def test_top_menu_hides_the_reminder_when_nothing_is_pending
+    log_user('jsmith', 'jsmith')
+
+    get '/'
+
+    assert_response :success
+    assert_select '#top-menu a.pending-approvals-alert', 0
+  end
+
+  def test_reminder_can_be_switched_off_by_the_administrator
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    set_plugin_settings('show_pending_approvals' => '0')
+    log_user('jsmith', 'jsmith')
+
+    get '/'
+
+    assert_response :success
+    assert_select '#top-menu a.pending-approvals-alert', 0
+  end
+
+  def test_pending_page_lists_the_issue_and_its_next_status
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    log_user('jsmith', 'jsmith')
+
+    get '/pending_approvals'
+
+    assert_response :success
+    assert_select "table.issues a[href=?]", "/issues/#{@issue.id}"
+    # Every listed row must name the step and the status it leads to.
+    assert_select 'table.issues tbody tr', :minimum => 1
+    assert_select 'table.issues tbody tr td', :text => /#{@issue.approval_route.step_at(0).issue_status.name}/
+  end
+
+  def test_pending_page_requires_login
+    get '/pending_approvals'
+
+    assert_redirected_to '/login?back_url=' + CGI.escape('http://www.example.com/pending_approvals')
+  end
+
+  def test_signing_removes_the_issue_from_the_reminder
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    log_user('jsmith', 'jsmith')
+
+    get '/pending_approvals'
+    assert_select "table.issues a[href=?]", "/issues/#{@issue.id}"
+
+    post "/issues/#{@issue.id}/approvals", :params => {:decision => 'approve'}
+    assert_redirected_to "/issues/#{@issue.id}"
+
+    # The issue now sits at step 1, which targets status 3. Remove every
+    # transition out of status 2 so this user cannot sign that step: the issue
+    # must drop off the reminder rather than linger on it.
+    WorkflowTransition.where(:tracker_id => @issue.tracker_id, :old_status_id => 2).delete_all
+    get '/pending_approvals'
+    assert_select "table.issues a[href='/issues/#{@issue.id}']", 0
+  end
+
   def test_non_admin_cannot_manage_routes
     log_user('jsmith', 'jsmith')
 

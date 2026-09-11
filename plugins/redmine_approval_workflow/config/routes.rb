@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+get 'pending_approvals', :to => 'pending_approvals#index', :as => 'pending_approvals'
+
 resources :approval_routes do
   member do
     post :move_step

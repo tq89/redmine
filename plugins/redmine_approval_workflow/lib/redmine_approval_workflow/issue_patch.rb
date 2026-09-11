@@ -107,6 +107,12 @@ module RedmineApprovalWorkflow
     def extendable_by?(user = User.current)
       return false unless attributes_editable?(user)
       return false unless user.allowed_to?(:extend_issue_due_date, project)
+      # Mirrors how signing follows status transitions: extending writes
+      # due_date, so it obeys the field permissions set per role, tracker and
+      # status in Administration -> Workflow -> Fields permissions. The check is
+      # explicit because the extension assigns due_date directly rather than
+      # through safe_attributes=, which would drop a read-only field silently.
+      return false if read_only_attribute_names(user).include?('due_date')
 
       limit = IssueExtension.max_count
       limit.zero? || extension_count < limit

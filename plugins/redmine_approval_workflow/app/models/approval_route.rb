@@ -9,13 +9,12 @@ class ApprovalRoute < ApplicationRecord
 
   has_many :steps, lambda {order(:position, :id)},
            :class_name => 'ApprovalRouteStep',
-           :foreign_key => 'approval_route_id',
            :dependent => :destroy,
            :inverse_of => :approval_route
   has_many :signatures,
            :class_name => 'ApprovalSignature',
-           :foreign_key => 'approval_route_id',
-           :dependent => :nullify
+           :dependent => :nullify,
+           :inverse_of => :approval_route
 
   accepts_nested_attributes_for :steps, :allow_destroy => true,
                                 :reject_if => proc {|attrs| attrs['issue_status_id'].blank?}

@@ -18,6 +18,10 @@ vi:
   label_status_change: "Chuyển trạng thái"
   label_order: "Thứ tự"
   label_all_projects: "Tất cả dự án"
+  label_pending_approval_plural: "Công việc chờ tôi ký"
+  label_pending_approval_with_count: "Chờ ký (%{count})"
+  label_no_pending_approval: "Không có công việc nào đang chờ bạn ký."
+  warning_pending_approvals_capped: "Chỉ hiển thị %{count} công việc đầu tiên. Hãy ký bớt rồi tải lại trang để xem tiếp."
 
   button_approve: "Ký duyệt"
   button_reject_approval: "Từ chối"
@@ -63,6 +67,8 @@ vi:
   setting_max_extension_days: "Số ngày tối đa mỗi lần gia hạn"
   setting_max_extension_count: "Số lần gia hạn tối đa"
   setting_require_extension_reason: "Bắt buộc nhập lý do gia hạn"
+  setting_show_pending_approvals: "Hiện nút nhắc ký trên thanh menu"
+  text_show_pending_approvals_hint: "Tắt nếu máy chủ yếu — mỗi lần tải trang sẽ bớt một lượt truy vấn."
 
   permission_view_approval_workflow: "Xem lưu trình ký"
   permission_extend_issue_due_date: "Gia hạn công việc"

@@ -20,6 +20,15 @@
                       settings['require_extension_reason'].to_s == '1',
                       :id => 'settings_require_extension_reason' %>
   </p>
+
+  <p>
+    <label for="settings_show_pending_approvals"><%= l(:setting_show_pending_approvals) %></label>
+    <%= hidden_field_tag 'settings[show_pending_approvals]', '0', :id => nil %>
+    <%= check_box_tag 'settings[show_pending_approvals]', '1',
+                      settings['show_pending_approvals'].to_s != '0',
+                      :id => 'settings_show_pending_approvals' %>
+    <em class="info"><%= l(:text_show_pending_approvals_hint) %></em>
+  </p>
 </div>
 
 <p class="info">

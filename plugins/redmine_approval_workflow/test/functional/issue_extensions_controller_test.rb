@@ -86,6 +86,36 @@ class IssueExtensionsControllerTest < Redmine::ControllerTest
     assert_equal @due, @issue.reload.due_date
   end
 
+  # Extending writes due_date, so the workflow's field permissions decide who
+  # may do it, the same way status transitions decide who may sign.
+  def test_extend_is_denied_when_workflow_marks_due_date_readonly
+    WorkflowPermission.create!(:tracker_id => @issue.tracker_id, :role_id => 1,
+                               :old_status_id => @issue.status_id,
+                               :field_name => 'due_date', :rule => 'readonly')
+    @request.session[:user_id] = 2
+
+    assert_not Issue.find(@issue.id).extendable_by?(User.find(2))
+
+    assert_no_difference 'IssueExtension.count' do
+      post :create, :params => {
+        :issue_id => @issue.id,
+        :issue_extension => {:new_due_date => (@due + 15).to_s, :reason => 'Thu'}
+      }
+    end
+
+    assert_response :forbidden
+    assert_equal @due, @issue.reload.due_date
+  end
+
+  def test_extend_is_allowed_when_readonly_applies_to_another_status
+    WorkflowPermission.create!(:tracker_id => @issue.tracker_id, :role_id => 1,
+                               :old_status_id => 5,
+                               :field_name => 'due_date', :rule => 'readonly')
+    @request.session[:user_id] = 2
+
+    assert Issue.find(@issue.id).extendable_by?(User.find(2))
+  end
+
   def test_new_renders_the_form_with_the_limit
     @request.session[:user_id] = 2
 

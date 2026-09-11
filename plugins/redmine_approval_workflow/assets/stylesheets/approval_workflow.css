@@ -21,3 +21,12 @@
 .issue-extensions table.issue-extension-list { margin-top: 8px; }
 
 table.approval-step-form input[type=text] { width: 100%; }
+
+#top-menu a.pending-approvals-alert {
+  background: #c62828;
+  color: #fff;
+  border-radius: 3px;
+  padding: 1px 7px;
+  font-weight: bold;
+}
+#top-menu a.pending-approvals-alert:hover { background: #a01c1c; }

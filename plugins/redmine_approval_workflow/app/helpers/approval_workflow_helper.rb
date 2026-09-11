@@ -27,7 +27,7 @@ module ApprovalWorkflowHelper
 
   # Latest signature recorded for a given step, used to show who signed it.
   def last_signature_for(issue, step)
-    issue.approval_signatures.select {|s| s.step_position == step.position}.last
+    issue.approval_signatures.reverse.find {|s| s.step_position == step.position}
   end
 
   def approval_max_extension_label

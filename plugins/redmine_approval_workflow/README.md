@@ -26,6 +26,46 @@ một chữ ký trái phép sẽ trông như thành công trong khi trạng thá
 Hệ quả: muốn cấp quyền ký bước "Giám đốc duyệt" cho vai trò nào, chỉ cần cho
 vai trò đó quyền chuyển sang trạng thái tương ứng trong luồng công việc.
 
+## Quyền gia hạn cũng lấy từ luồng công việc
+
+Ký duyệt bám vào *chuyển trạng thái*; gia hạn ghi vào trường `due_date` nên nó
+bám vào **quyền trên trường** — tab *Quyền trên trường* trong
+**Quản trị → Luồng công việc**. Đặt `due_date` là **Chỉ đọc** cho một vai trò ở
+một trạng thái nào đó thì vai trò đó không gia hạn được ở trạng thái ấy.
+
+Điều kiện đầy đủ để gia hạn:
+
+```ruby
+issue.attributes_editable?(user) &&
+  user.allowed_to?(:extend_issue_due_date, project) &&
+  !issue.read_only_attribute_names(user).include?('due_date') &&
+  (số lần gia hạn chưa vượt giới hạn)
+```
+
+Kiểm tra `read_only_attribute_names` phải làm tường minh vì plugin gán
+`due_date` trực tiếp chứ không qua `safe_attributes=` — cùng lý do như với
+status.
+
+## Nút nhắc ký trên thanh menu
+
+Khi có bước đang chờ chữ ký của bạn, thanh menu trên cùng hiện mục
+**Chờ ký (n)** dẫn tới danh sách công việc. Mục này tự ẩn khi không còn gì để ký.
+
+Caption của menu bị `h()` escape (`lib/redmine/menu_manager.rb:187`) nên số đếm
+là text thường, không phải badge HTML.
+
+**Về hiệu năng** — mục này render trên *mọi* trang, nên phép tra cứu được viết
+theo lô: routes, chữ ký và workflow transitions mỗi thứ lấy **một** lần rồi
+đối chiếu trong bộ nhớ. Số query **không tăng theo số lượng issue**
+(đo được: 26 query với 3 issue, vẫn 26 query với 43 issue). Nếu gọi thẳng
+`Issue#can_approve?` cho từng issue thì tốn ~10 query/issue.
+
+`Issue#can_approve?` vẫn là chuẩn mực — controller dùng nó — và
+`PendingApprovalsTest` ghim đường nhanh vào nó bằng các test so sánh kết quả
+hai bên. **Sửa một bên thì phải sửa bên kia.**
+
+Quản trị viên có thể tắt nút này (Quản trị → Plugins → Cấu hình) nếu máy chủ yếu.
+
 ## Cài đặt
 
 ```bash
@@ -50,6 +90,7 @@ Lưu trình gắn với một dự án được ưu tiên hơn lưu trình chung
 | Số ngày tối đa mỗi lần gia hạn | 30 | 0 = không giới hạn |
 | Số lần gia hạn tối đa | 0 | 0 = không giới hạn |
 | Bắt buộc nhập lý do gia hạn | có | |
+| Hiện nút nhắc ký trên thanh menu | có | tắt để giảm tải máy chủ |
 
 ## Cách hoạt động
 
@@ -69,7 +110,7 @@ trong tab thông thường của Redmine.
 | Quyền | Tác dụng |
 |---|---|
 | Xem lưu trình ký | Hiện panel lưu trình trên trang công việc |
-| Gia hạn công việc | Cho phép bấm nút Gia hạn |
+| Gia hạn công việc | Cho phép bấm nút Gia hạn (còn phải qua quyền trên trường `due_date`) |
 
 Quản lý lưu trình chỉ dành cho quản trị viên hệ thống.
 
@@ -79,4 +120,4 @@ Quản lý lưu trình chỉ dành cho quản trị viên hệ thống.
 bundle exec rails test plugins/redmine_approval_workflow/test RAILS_ENV=test
 ```
 
-49 test, 178 assertion.
+72 test, 250 assertion.

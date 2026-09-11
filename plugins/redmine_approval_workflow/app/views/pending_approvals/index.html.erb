@@ -1,0 +1,40 @@
+<h2><%= l(:label_pending_approval_plural) %></h2>
+
+<% if @issues.any? %>
+  <% if @capped %>
+    <p class="warning"><%= l(:warning_pending_approvals_capped,
+                             :count => RedmineApprovalWorkflow::PendingApprovals::CANDIDATE_LIMIT) %></p>
+  <% end %>
+
+  <table class="list issues">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th><%= l(:label_project) %></th>
+        <th><%= l(:field_tracker) %></th>
+        <th><%= l(:field_subject) %></th>
+        <th><%= l(:field_status) %></th>
+        <th><%= l(:label_approval_step) %></th>
+        <th><%= l(:label_status_change) %></th>
+        <th><%= l(:field_due_date) %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @issues.each do |issue| %>
+        <% step = issue.current_approval_step %>
+        <tr class="issue">
+          <td><%= link_to issue.id, issue_path(issue) %></td>
+          <td><%= link_to_project issue.project %></td>
+          <td><%= h issue.tracker.name %></td>
+          <td><%= link_to issue.subject, issue_path(issue) %></td>
+          <td><%= h issue.status.name %></td>
+          <td><%= h step&.name %></td>
+          <td><%= h issue.status.name %> &rarr; <strong><%= h step&.issue_status&.name %></strong></td>
+          <td><%= issue.due_date ? format_date(issue.due_date) : '' %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p class="nodata"><%= l(:label_no_pending_approval) %></p>
+<% end %>
