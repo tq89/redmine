@@ -29,6 +29,15 @@
                       :id => 'settings_show_pending_approvals' %>
     <em class="info"><%= l(:text_show_pending_approvals_hint) %></em>
   </p>
+
+  <p>
+    <label for="settings_notify_on_pending_approval"><%= l(:setting_notify_on_pending_approval) %></label>
+    <%= hidden_field_tag 'settings[notify_on_pending_approval]', '0', :id => nil %>
+    <%= check_box_tag 'settings[notify_on_pending_approval]', '1',
+                      settings['notify_on_pending_approval'].to_s == '1',
+                      :id => 'settings_notify_on_pending_approval' %>
+    <em class="info"><%= l(:text_notify_on_pending_approval_hint) %></em>
+  </p>
 </div>
 
 <p class="info">

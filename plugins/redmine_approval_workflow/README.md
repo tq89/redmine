@@ -66,6 +66,40 @@ hai bên. **Sửa một bên thì phải sửa bên kia.**
 
 Quản trị viên có thể tắt nút này (Quản trị → Plugins → Cấu hình) nếu máy chủ yếu.
 
+## Gửi email khi tới lượt ký (tuỳ chọn)
+
+Bật tại **Quản trị → Plugins → Cấu hình → Gửi email khi tới lượt ký**.
+**Mặc định tắt** — hãy kiểm tra cấu hình email của bạn trước khi bật.
+
+Mail được gửi khi:
+
+- tạo công việc mới thuộc tracker có lưu trình (bước 1 lập tức chờ ký);
+- ai đó **ký duyệt** xong, bước kế tiếp chuyển sang người khác;
+- ai đó **từ chối**, công việc trả về bước trước đó.
+
+Người nhận là những ai có quyền ký bước đang chờ — tức là có quyền chuyển sang
+trạng thái đích của bước đó. Danh sách được thu hẹp trước bằng các vai trò thật
+sự nắm chuyển trạng thái, nên dự án đông người không đồng nghĩa với việc kiểm
+tra từng thành viên.
+
+Không gửi cho: người vừa thao tác (không ai nhận mail về hành động của chính
+mình), người đã tắt hẳn thông báo (`mail_notification = none`), người không
+nhìn thấy công việc.
+
+> **Lưu ý:** ký duyệt cũng là một lần cập nhật công việc, nên Redmine vẫn gửi
+> thông báo "issue updated" như thường lệ. Bật tuỳ chọn này nghĩa là người ký
+> tiếp theo có thể nhận **hai** email. Tuỳ chọn này chỉ điều khiển mail của
+> plugin, không đụng tới thông báo gốc của Redmine.
+
+`ApprovalMailer` kế thừa `Mailer` của Redmine nên dùng chung From, List-Id,
+delivery job và tuỳ chọn *"Không gửi thông báo về thay đổi do tôi tạo ra"*.
+Lỗi gửi mail lúc tạo công việc được bắt lại và ghi log — không bao giờ làm
+hỏng việc tạo công việc.
+
+> Redmine mặc định dùng ActiveJob adapter `:async` (chạy thread trong chính
+> tiến trình Puma). Nếu máy chủ đang căng, cân nhắc kỹ trước khi bật thêm
+> nguồn gửi mail.
+
 ## Cài đặt
 
 ```bash
@@ -91,6 +125,7 @@ Lưu trình gắn với một dự án được ưu tiên hơn lưu trình chung
 | Số lần gia hạn tối đa | 0 | 0 = không giới hạn |
 | Bắt buộc nhập lý do gia hạn | có | |
 | Hiện nút nhắc ký trên thanh menu | có | tắt để giảm tải máy chủ |
+| Gửi email khi tới lượt ký | **không** | xem mục riêng bên dưới |
 
 ## Cách hoạt động
 
@@ -120,4 +155,4 @@ Quản lý lưu trình chỉ dành cho quản trị viên hệ thống.
 bundle exec rails test plugins/redmine_approval_workflow/test RAILS_ENV=test
 ```
 
-72 test, 250 assertion.
+84 test, 284 assertion.

@@ -46,6 +46,10 @@ class ApprovalsController < ApplicationController
       @signature.save!
     end
 
+    # Both directions hand the issue to somebody: approving moves it on to the
+    # next step, rejecting hands it back to the previous one.
+    ApprovalMailer.deliver_approval_pending(@issue.reload, User.current)
+
     flash[:notice] = l(@approving ? :notice_approval_signed : :notice_approval_rejected)
     redirect_to issue_path(@issue)
   rescue ActiveRecord::RecordInvalid => e

@@ -16,7 +16,8 @@ Redmine::Plugin.register :redmine_approval_workflow do
       'max_extension_days' => '30',
       'max_extension_count' => '0',
       'require_extension_reason' => '1',
-      'show_pending_approvals' => '1'
+      'show_pending_approvals' => '1',
+      'notify_on_pending_approval' => '0'
     },
     :partial => 'settings/approval_workflow_settings'
   )

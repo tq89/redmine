@@ -117,6 +117,66 @@ class ApprovalsControllerTest < Redmine::ControllerTest
     assert_select 'table.list tbody tr', 1
   end
 
+  # Signing is an issue update, so Redmine sends its own notification too.
+  # These assertions look only at the approval mail this plugin adds.
+  def approval_mail_recipients
+    subject = ::I18n.t(:mail_subject_approval_pending, :locale => :en)
+    ActionMailer::Base.deliveries.
+      select {|mail| mail.subject.to_s.include?(subject)}.
+      flat_map(&:to).uniq.sort
+  end
+
+  # Lets dlopper (role 2) sign step 1, so approving step 0 as jsmith hands the
+  # issue to somebody who is not the actor.
+  def let_another_role_sign_the_second_step
+    WorkflowTransition.create!(:tracker_id => @issue.tracker_id, :role_id => 2,
+                               :old_status_id => 2, :new_status_id => 3)
+  end
+
+  def test_signing_notifies_whoever_may_sign_the_next_step
+    set_plugin_settings('notify_on_pending_approval' => '1')
+    let_another_role_sign_the_second_step
+    Setting.default_language = 'en'
+    ActionMailer::Base.deliveries.clear
+    @request.session[:user_id] = 2
+
+    post :create, :params => {:issue_id => @issue.id, :decision => 'approve'}
+
+    assert_equal 2, @issue.reload.status_id
+    expected = ApprovalMailer.recipients(@issue, @route.step_at(1), User.find(2))
+    assert expected.any?, 'fixture must leave somebody able to sign step 1'
+    assert_equal expected.flat_map(&:mails).uniq.sort, approval_mail_recipients
+    assert_not_includes approval_mail_recipients, User.find(2).mail
+  end
+
+  def test_signing_sends_no_approval_mail_when_the_option_is_off
+    set_plugin_settings('notify_on_pending_approval' => '0')
+    let_another_role_sign_the_second_step
+    Setting.default_language = 'en'
+    ActionMailer::Base.deliveries.clear
+    @request.session[:user_id] = 2
+
+    post :create, :params => {:issue_id => @issue.id, :decision => 'approve'}
+
+    assert_equal 2, @issue.reload.status_id
+    assert_empty approval_mail_recipients
+    # Redmine's own issue-update notification is unaffected by this option.
+    assert ActionMailer::Base.deliveries.any?
+  end
+
+  def test_rejecting_notifies_the_step_it_hands_back_to
+    set_plugin_settings('notify_on_pending_approval' => '1')
+    Setting.default_language = 'en'
+    @request.session[:user_id] = 2
+    post :create, :params => {:issue_id => @issue.id, :decision => 'approve'}
+    ActionMailer::Base.deliveries.clear
+
+    post :create, :params => {:issue_id => @issue.id, :decision => 'reject'}
+
+    assert_equal 0, @issue.reload.approval_position
+    assert approval_mail_recipients.any?, 'handing an issue back starts somebody new turn'
+  end
+
   def test_returns_404_when_no_route_is_configured
     ApprovalRoute.delete_all
     @request.session[:user_id] = 2

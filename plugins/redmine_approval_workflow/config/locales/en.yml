@@ -66,6 +66,11 @@ en:
   setting_max_extension_count: "Maximum number of extensions"
   setting_require_extension_reason: "Require a reason for extensions"
   setting_show_pending_approvals: "Show the signing reminder in the top menu"
+  setting_notify_on_pending_approval: "Send an email when it is someone's turn to sign"
+  text_notify_on_pending_approval_hint: "Sent to whoever may sign the pending step. Nobody is mailed about their own action. Check the email configuration before turning this on."
+  mail_subject_approval_pending: "It is your turn to sign"
+  mail_body_approval_pending: "The following issue is waiting for your signature on step \"%{step}\":"
+  text_approval_mail_footer: "See the issue:"
   text_show_pending_approvals_hint: "Turn off on a constrained server to save one lookup per page load."
 
   permission_view_approval_workflow: "View approval route"

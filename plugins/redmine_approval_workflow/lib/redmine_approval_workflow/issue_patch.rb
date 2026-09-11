@@ -10,7 +10,18 @@ module RedmineApprovalWorkflow
       base.class_eval do
         has_many :approval_signatures, lambda {order(:id)}, :dependent => :destroy
         has_many :issue_extensions, lambda {order(:id)}, :dependent => :destroy
+
+        # A new issue on a routed tracker puts step 0 in front of somebody
+        # straight away; later turns are announced by ApprovalsController.
+        after_create :notify_first_approval_step
       end
+    end
+
+    def notify_first_approval_step
+      ApprovalMailer.deliver_approval_pending(self, author)
+    rescue StandardError => e
+      # Never let a notification failure roll back the issue itself.
+      Rails.logger.error("Approval notification failed for issue #{id}: #{e.message}")
     end
 
     # The chain governing this issue, or nil when none is configured.

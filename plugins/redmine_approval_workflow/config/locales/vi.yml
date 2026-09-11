@@ -68,6 +68,11 @@ vi:
   setting_max_extension_count: "Số lần gia hạn tối đa"
   setting_require_extension_reason: "Bắt buộc nhập lý do gia hạn"
   setting_show_pending_approvals: "Hiện nút nhắc ký trên thanh menu"
+  setting_notify_on_pending_approval: "Gửi email khi tới lượt ký"
+  text_notify_on_pending_approval_hint: "Gửi cho những người có quyền ký bước đang chờ. Người vừa thao tác không nhận mail của chính mình. Hãy kiểm tra cấu hình email trước khi bật."
+  mail_subject_approval_pending: "Tới lượt bạn ký duyệt"
+  mail_body_approval_pending: "Công việc sau đang chờ bạn ký bước \"%{step}\":"
+  text_approval_mail_footer: "Xem chi tiết công việc:"
   text_show_pending_approvals_hint: "Tắt nếu máy chủ yếu — mỗi lần tải trang sẽ bớt một lượt truy vấn."
 
   permission_view_approval_workflow: "Xem lưu trình ký"

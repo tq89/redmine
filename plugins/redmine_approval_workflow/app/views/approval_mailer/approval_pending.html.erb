@@ -1,0 +1,35 @@
+<p><%= l(:mail_body_approval_pending, :step => h(@step_name)) %></p>
+
+<table>
+  <tr>
+    <td><strong><%= l(:label_issue) %></strong></td>
+    <td><%= link_to "#{h @issue.tracker.name} ##{@issue.id}: #{h @issue.subject}", @issue_url %></td>
+  </tr>
+  <tr>
+    <td><strong><%= l(:label_project) %></strong></td>
+    <td><%= h @issue.project.name %></td>
+  </tr>
+  <tr>
+    <td><strong><%= l(:label_approval_step) %></strong></td>
+    <td><%= h @step_name %></td>
+  </tr>
+  <tr>
+    <td><strong><%= l(:label_status_change) %></strong></td>
+    <td><%= h @issue.status.name %> &rarr; <strong><%= h @target_status_name %></strong></td>
+  </tr>
+  <tr>
+    <td><strong><%= l(:field_author) %></strong></td>
+    <td><%= h @issue.author.to_s %></td>
+  </tr>
+  <% if @issue.due_date %>
+    <tr>
+      <td><strong><%= l(:field_due_date) %></strong></td>
+      <td><%= format_date(@issue.due_date) %></td>
+    </tr>
+  <% end %>
+</table>
+
+<p><%= link_to l(:button_approve), @approve_url %></p>
+
+<hr />
+<p><%= l(:text_approval_mail_footer) %> <%= link_to @issue_url, @issue_url %></p>
