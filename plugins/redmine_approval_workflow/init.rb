@@ -22,28 +22,6 @@ Redmine::Plugin.register :redmine_approval_workflow do
     :partial => 'settings/approval_workflow_settings'
   )
 
-  menu :admin_menu, :approval_routes, {:controller => 'approval_routes', :action => 'index'},
-       :caption => :label_approval_route_plural,
-       :icon => 'workflows',
-       :html => {:class => 'icon icon-workflows'}
-
-  # Reminder of steps waiting for the signed-in user. Menu captions are
-  # h-escaped by render_single_menu_node, so the count is plain text rather
-  # than badge markup. The item hides itself when there is nothing to sign;
-  # both the :if and the caption read the same per-request memo, so the
-  # lookup runs once per page.
-  menu :top_menu, :pending_approvals,
-       {:controller => 'pending_approvals', :action => 'index'},
-       # The block runs with the Redmine::Plugin instance as self, which has no
-       # view helpers, so translation goes through I18n directly.
-       :caption => Proc.new {
-         ::I18n.t(:label_pending_approval_with_count,
-                  :count => User.current.pending_approval_count)
-       },
-       :if => Proc.new {User.current.logged? && User.current.pending_approvals?},
-       :html => {:class => 'pending-approvals-alert'},
-       :last => true
-
   project_module :approval_workflow do
     # Signing itself is NOT gated by a permission of its own: it is gated by the
     # workflow transition the signature performs, so that "who may sign" always
@@ -54,6 +32,11 @@ Redmine::Plugin.register :redmine_approval_workflow do
                :read => true
     permission :extend_issue_due_date,
                {:issue_extensions => [:new, :create]}
+    # Approval chains live in the project's own settings, so configuring them
+    # is a project permission rather than something only a system admin can do.
+    permission :manage_approval_routes,
+               {:approval_routes => [:index, :new, :create, :edit, :update, :destroy]},
+               :require => :member
   end
 end
 
@@ -64,8 +47,21 @@ unless Issue.included_modules.include?(RedmineApprovalWorkflow::IssuePatch)
   Issue.include RedmineApprovalWorkflow::IssuePatch
 end
 
+unless Issue.included_modules.include?(RedmineApprovalWorkflow::IssuePatch::Reload)
+  Issue.prepend RedmineApprovalWorkflow::IssuePatch::Reload
+end
+
 unless User.included_modules.include?(RedmineApprovalWorkflow::UserPatch)
   User.include RedmineApprovalWorkflow::UserPatch
+end
+
+unless Project.included_modules.include?(RedmineApprovalWorkflow::ProjectPatch)
+  Project.include RedmineApprovalWorkflow::ProjectPatch
+end
+
+# prepend so the settings tab is appended after Redmine's own list is built.
+unless ProjectsHelper.included_modules.include?(RedmineApprovalWorkflow::ProjectsHelperPatch)
+  ProjectsHelper.prepend RedmineApprovalWorkflow::ProjectsHelperPatch
 end
 
 # config.action_controller.include_all_helpers is false in Redmine, so the

@@ -1,41 +1,45 @@
 # frozen_string_literal: true
 
+# Approval chains are configured per project, from the project's own settings,
+# and only ever govern issues of that project.
 class ApprovalRoutesController < ApplicationController
-  layout 'admin'
-  self.main_menu = false
+  menu_item :settings
 
-  before_action :require_admin
+  before_action :find_project_by_project_id
+  before_action :authorize
   before_action :find_route, :only => [:edit, :update, :destroy]
 
   def index
-    @routes = ApprovalRoute.sorted.includes(:tracker, :project, :steps)
+    redirect_to settings_project_path(@project, :tab => 'approval_routes')
   end
 
   def new
-    @route = ApprovalRoute.new
-    @route.steps.build(:position => 0)
+    @route = @project.approval_routes.build
+    3.times {|index| @route.steps.build(:position => index)}
   end
 
   def create
-    @route = ApprovalRoute.new(route_params)
+    @route = @project.approval_routes.build(route_params)
     if @route.save
       renumber_steps
       flash[:notice] = l(:notice_successful_create)
-      redirect_to approval_routes_path
+      redirect_to settings_project_path(@project, :tab => 'approval_routes')
     else
       @route.steps.build(:position => 0) if @route.steps.empty?
       render :new
     end
   end
 
-  def edit; end
+  def edit
+    3.times {|index| @route.steps.build(:position => @route.steps.size + index)}
+  end
 
   def update
     @route.assign_attributes(route_params)
     if @route.save
       renumber_steps
       flash[:notice] = l(:notice_successful_update)
-      redirect_to approval_routes_path
+      redirect_to settings_project_path(@project, :tab => 'approval_routes')
     else
       render :edit
     end
@@ -43,13 +47,13 @@ class ApprovalRoutesController < ApplicationController
 
   def destroy
     @route.destroy
-    redirect_to approval_routes_path
+    redirect_to settings_project_path(@project, :tab => 'approval_routes')
   end
 
   private
 
   def find_route
-    @route = ApprovalRoute.find(params[:id])
+    @route = @project.approval_routes.find(params[:id])
   rescue ActiveRecord::RecordNotFound
     render_404
   end
@@ -64,8 +68,10 @@ class ApprovalRoutesController < ApplicationController
 
   def route_params
     params.require(:approval_route).permit(
-      :name, :tracker_id, :project_id, :rejected_status_id, :description, :active,
-      :steps_attributes => [:id, :name, :issue_status_id, :position, :_destroy]
+      :name, :tracker_id, :rejected_status_id, :description, :active,
+      :steps_attributes => [:id, :name, :issue_status_id, :position,
+                            :approver_role_id, :approver_user_id, :button_label,
+                            :_destroy]
     )
   end
 end

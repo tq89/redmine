@@ -1,0 +1,88 @@
+<%
+  # The hook fires on every layout render, including for anonymous visitors and
+  # when an administrator has switched the reminder off.
+  show_bell = User.current.logged? && RedmineApprovalWorkflow::PendingApprovals.enabled?
+  pending = show_bell ? User.current.pending_approval_issues : []
+  overdue = show_bell ? User.current.overdue_issues : []
+  total = pending.size + overdue.size
+%>
+<% if show_bell %>
+<div id="approval-bell" class="dropdown" data-controller="dropdown">
+  <a href="#" class="dropdown-trigger approval-bell-trigger <%= 'has-items' if total > 0 %>"
+     title="<%= l(:label_approval_bell_title) %>"
+     data-action="click->dropdown#toggle">
+    <svg class="approval-bell-icon" viewBox="0 0 24 24" width="20" height="20"
+         fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M10 5a2 2 0 1 1 4 0 7 7 0 0 1 4 6v3a4 4 0 0 0 2 3H4a4 4 0 0 0 2-3v-3a7 7 0 0 1 4-6" />
+      <path d="M9 17v1a3 3 0 0 0 6 0v-1" />
+    </svg>
+    <% if total > 0 %>
+      <span class="approval-bell-count"><%= total > 99 ? '99+' : total %></span>
+    <% end %>
+  </a>
+
+  <div class="dropdown-content approval-bell-panel hidden" data-dropdown-target="content">
+    <% if total.zero? %>
+      <p class="approval-bell-empty"><%= l(:label_no_pending_approval) %></p>
+    <% end %>
+
+    <% if pending.any? %>
+      <div class="approval-bell-section">
+        <h4><%= l(:label_pending_approval_plural) %> (<%= pending.size %>)</h4>
+        <ul>
+          <% pending.each do |issue| %>
+            <% step = issue.current_approval_step %>
+            <li class="approval-bell-item">
+              <%= link_to "#{h issue.tracker.name} ##{issue.id}", issue_path(issue),
+                          :class => 'approval-bell-ref' %>
+              <span class="approval-bell-subject"><%= h issue.subject.truncate(60) %></span>
+              <span class="approval-bell-meta">
+                <%= h issue.project.name %>
+                &middot; <%= h step&.name %>
+                &rarr; <%= h step&.issue_status&.name %>
+              </span>
+              <span class="approval-bell-actions">
+                <%= button_to issue.approval_action_label,
+                              issue_approvals_path(issue, :decision => 'approve'),
+                              :method => :post,
+                              :class => 'approval-bell-sign',
+                              :data => {:confirm => l(:text_confirm_quick_sign,
+                                                      :status => step&.issue_status&.name)} %>
+                <%= link_to l(:label_approval_with_comment),
+                            new_issue_approval_path(issue, :decision => 'approve'),
+                            :class => 'approval-bell-detail' %>
+              </span>
+            </li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <% if overdue.any? %>
+      <div class="approval-bell-section approval-bell-overdue">
+        <h4><%= l(:label_overdue_issue_plural) %> (<%= overdue.size %>)</h4>
+        <ul>
+          <% overdue.each do |issue| %>
+            <li class="approval-bell-item">
+              <%= link_to "#{h issue.tracker.name} ##{issue.id}", issue_path(issue),
+                          :class => 'approval-bell-ref' %>
+              <span class="approval-bell-subject"><%= h issue.subject.truncate(60) %></span>
+              <span class="approval-bell-meta">
+                <%= h issue.project.name %>
+                &middot; <span class="approval-overdue-days">
+                  <%= l(:label_overdue_by_days, :count => (User.current.today - issue.due_date).to_i) %>
+                </span>
+              </span>
+            </li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <div class="approval-bell-footer">
+      <%= link_to l(:label_pending_approval_plural), pending_approvals_path %>
+    </div>
+  </div>
+</div>
+<% end %>

@@ -30,6 +30,19 @@ module ApprovalWorkflowHelper
     issue.approval_signatures.reverse.find {|s| s.step_position == step.position}
   end
 
+  # Roles that can hold a workflow transition; builtin roles are excluded
+  # because a step is assigned to people who are members of the project.
+  def approval_role_options
+    Role.givable.sorted.map {|role| [role.name, role.id]}
+  end
+
+  def approval_member_options(project)
+    project.members.includes(:principal).map(&:principal).
+      select {|principal| principal.is_a?(User)}.
+      sort_by(&:name).
+      map {|user| [user.name, user.id]}
+  end
+
   def approval_max_extension_label
     limit = IssueExtension.max_days
     limit > 0 ? l(:label_max_extension_days, :count => limit) : l(:label_no_extension_limit)

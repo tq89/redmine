@@ -22,6 +22,11 @@
           <%= approval_step_icon(state) %>
           <span class="approval-step-name"><%= h step.name %></span>
           <span class="approval-step-status">&rarr; <%= h step.issue_status.name %></span>
+          <% if step.approver_user %>
+            <span class="approval-assignee"><%= l(:label_assigned_person) %>: <%= h step.approver_user.name %></span>
+          <% elsif step.approver_role %>
+            <span class="approval-assignee"><%= l(:label_assigned_role) %>: <%= h step.approver_role.name %></span>
+          <% end %>
           <% if signature %>
             <span class="approval-step-signature">
               <%= link_to_user signature.user %>,
@@ -40,7 +45,7 @@
 
     <p class="buttons">
       <% if issue.can_approve?(User.current) %>
-        <%= link_to sprite_icon('checked', l(:button_approve)),
+        <%= link_to sprite_icon('checked', issue.approval_action_label),
                     new_issue_approval_path(issue, :decision => 'approve'),
                     :class => 'icon icon-checked button-positive' %>
       <% end %>

@@ -2,10 +2,8 @@
 
 get 'pending_approvals', :to => 'pending_approvals#index', :as => 'pending_approvals'
 
-resources :approval_routes do
-  member do
-    post :move_step
-  end
+resources :projects, :only => [] do
+  resources :approval_routes
 end
 
 resources :issues, :only => [] do

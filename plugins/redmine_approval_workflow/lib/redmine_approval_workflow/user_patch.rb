@@ -16,5 +16,23 @@ module RedmineApprovalWorkflow
     def pending_approvals?
       pending_approval_count > 0
     end
+
+    # Open issues assigned to this user, or to one of their groups, whose due
+    # date has passed. One query, capped, shown alongside the signing queue.
+    OVERDUE_LIMIT = 20
+
+    def overdue_issues
+      return @overdue_issues if defined?(@overdue_issues)
+      return (@overdue_issues = []) unless logged?
+
+      @overdue_issues =
+        Issue.visible(self).open.
+        where(:assigned_to_id => [id] + group_ids).
+        where("#{Issue.table_name}.due_date < ?", today).
+        order(:due_date).
+        limit(OVERDUE_LIMIT).
+        preload(:project, :tracker, :status).
+        to_a
+    end
   end
 end

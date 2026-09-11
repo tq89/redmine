@@ -17,6 +17,20 @@ en:
   label_status_change: "Status change"
   label_order: "Order"
   label_all_projects: "All projects"
+  label_approver: "Approver"
+  label_approver_anyone: "(follow the workflow)"
+  label_assigned_role: "Role"
+  label_assigned_person: "Person"
+  label_button_label: "Button label"
+  label_approval_bell_title: "Things needing you"
+  label_approval_with_comment: "Sign with a comment"
+  label_overdue_issue_plural: "Overdue issues"
+  label_overdue_by_days: "%{count} days late"
+  text_confirm_quick_sign: "Approve and move to \"%{status}\"?"
+  text_project_approval_routes_hint: "Routes declared here apply to this project only."
+  text_routes_moved_to_project_settings: "Approval routes are configured in each project's Settings, under the \"Approval routes\" tab."
+  text_approver_hint: "Pick a role OR one person, not both. Left empty, anyone the workflow allows may sign. Once set, only they see the sign button, the reminder and the email."
+  text_button_label_hint: "Wording of the step's action button, e.g. \"Submit\" or \"Approve\". Empty falls back to \"Approve\"."
   label_pending_approval_plural: "Issues awaiting my signature"
   label_pending_approval_with_count: "To sign (%{count})"
   label_no_pending_approval: "Nothing is waiting for your signature."
@@ -80,6 +94,10 @@ en:
   activerecord:
     errors:
       models:
+        approval_route_step:
+          attributes:
+            approver_user_id:
+              only_one_approver_allowed: "cannot be set together with a role"
         issue_extension:
           attributes:
             new_due_date:

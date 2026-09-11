@@ -28,7 +28,10 @@
           <td><%= h issue.tracker.name %></td>
           <td><%= link_to issue.subject, issue_path(issue) %></td>
           <td><%= h issue.status.name %></td>
-          <td><%= h step&.name %></td>
+          <td>
+            <%= h step&.name %>
+            <span class="approval-button-label">[<%= h(step&.action_label) %>]</span>
+          </td>
           <td><%= h issue.status.name %> &rarr; <strong><%= h step&.issue_status&.name %></strong></td>
           <td><%= issue.due_date ? format_date(issue.due_date) : '' %></td>
         </tr>

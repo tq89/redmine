@@ -1,0 +1,54 @@
+<div class="contextual">
+  <%= link_to sprite_icon('add', l(:label_approval_route_new)),
+              new_project_approval_route_path(@project), :class => 'icon icon-add' %>
+</div>
+
+<p class="info"><%= l(:text_project_approval_routes_hint) %></p>
+
+<% routes = @project.approval_routes.includes(:tracker, :steps => [:issue_status, :approver_role, :approver_user]) %>
+<% if routes.any? %>
+  <table class="list">
+    <thead>
+      <tr>
+        <th><%= l(:field_name) %></th>
+        <th><%= l(:label_tracker) %></th>
+        <th><%= l(:label_approval_step_plural) %></th>
+        <th><%= l(:field_active) %></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% routes.each do |route| %>
+        <tr>
+          <td><%= link_to h(route.name), edit_project_approval_route_path(@project, route) %></td>
+          <td><%= h route.tracker&.name %></td>
+          <td>
+            <ol class="approval-route-summary">
+              <% route.steps.each do |step| %>
+                <li>
+                  <strong><%= h step.name %></strong>
+                  &rarr; <%= h step.issue_status&.name %>
+                  <span class="approval-button-label">[<%= h step.action_label %>]</span>
+                  <% if step.approver_user %>
+                    <span class="approval-assignee"><%= l(:label_assigned_person) %>: <%= h step.approver_user.name %></span>
+                  <% elsif step.approver_role %>
+                    <span class="approval-assignee"><%= l(:label_assigned_role) %>: <%= h step.approver_role.name %></span>
+                  <% end %>
+                </li>
+              <% end %>
+            </ol>
+          </td>
+          <td><%= checked_image route.active %></td>
+          <td class="buttons">
+            <%= link_to l(:button_edit), edit_project_approval_route_path(@project, route), :class => 'icon icon-edit' %>
+            <%= link_to l(:button_delete), project_approval_route_path(@project, route),
+                        :data => {:confirm => l(:text_are_you_sure)},
+                        :method => :delete, :class => 'icon icon-del' %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p class="nodata"><%= l(:label_no_data) %></p>
+<% end %>

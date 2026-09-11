@@ -6,6 +6,19 @@ module RedmineApprovalWorkflow
   # Position semantics used throughout: +approval_position+ is the 0-based index
   # of the step that is *pending*, i.e. steps 0..position-1 have been approved.
   module IssuePatch
+    # reload is how callers ask for fresh state, so the memoised route has to go
+    # with it, or a route edited in the meantime stays invisible.
+    #
+    # Issue defines reload itself (app/models/issue.rb:285), which sits ahead of
+    # an included module in the ancestor chain, so this has to be prepended --
+    # putting it in IssuePatch alongside everything else would never run.
+    module Reload
+      def reload(*)
+        remove_instance_variable(:@approval_route) if defined?(@approval_route)
+        super
+      end
+    end
+
     def self.included(base)
       base.class_eval do
         has_many :approval_signatures, lambda {order(:id)}, :dependent => :destroy
@@ -76,9 +89,13 @@ module RedmineApprovalWorkflow
     # Signing is deliberately not governed by a permission of its own: a user
     # may sign a step exactly when Redmine's workflow lets them move the issue
     # into that step's status.
-    def approval_signable_by?(user, target_status)
+    #
+    # When +step+ names an approver, that narrows the result further; it can
+    # never let somebody sign a transition the workflow denies them.
+    def approval_signable_by?(user, target_status, step = nil)
       return false if target_status.nil?
       return false unless attributes_editable?(user)
+      return false if step && !step.assigned_to?(user, project)
 
       new_statuses_allowed_to(user).include?(target_status)
     end
@@ -87,7 +104,7 @@ module RedmineApprovalWorkflow
       return false unless approval_route?
       return false if approval_completed?
 
-      approval_signable_by?(user, approval_target_status)
+      approval_signable_by?(user, approval_target_status, current_approval_step)
     end
 
     def can_reject_approval?(user = User.current)
@@ -95,7 +112,13 @@ module RedmineApprovalWorkflow
       return false if approval_position.zero? && approval_signatures.empty? &&
                       approval_route.rejected_status.nil?
 
-      approval_signable_by?(user, approval_reject_target_status)
+      # Rejecting is the pending step's decision too, so the same person holds it.
+      approval_signable_by?(user, approval_reject_target_status, current_approval_step)
+    end
+
+    # Wording of the approve button for the step awaiting a signature.
+    def approval_action_label
+      current_approval_step&.action_label || ::I18n.t(:button_approve)
     end
 
     # True when the issue status drifted away from the chain, e.g. because

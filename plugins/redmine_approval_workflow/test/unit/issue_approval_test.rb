@@ -102,6 +102,36 @@ class IssueApprovalTest < ActiveSupport::TestCase
     assert_not @issue.approval_signable_by?(User.find(2), nil)
   end
 
+  def test_action_label_defaults_and_can_be_overridden
+    assert_equal ::I18n.t(:button_approve), @issue.approval_action_label
+
+    @route.step_at(0).update!(:button_label => 'Trình ký')
+    assert_equal 'Trình ký', @issue.reload.approval_action_label
+  end
+
+  def test_assigned_step_blocks_a_user_outside_the_assignment
+    manager = User.find(2)
+    assert @issue.can_approve?(manager)
+
+    @route.step_at(0).update!(:approver_user_id => 3)
+    assert_not @issue.reload.can_approve?(manager)
+  end
+
+  def test_rejecting_is_held_by_the_same_person_as_signing
+    @route.step_at(0).update!(:approver_user_id => 3)
+
+    assert_not @issue.reload.can_reject_approval?(User.find(2))
+  end
+
+  def test_a_step_cannot_name_both_a_role_and_a_person
+    step = @route.step_at(0)
+    step.approver_role_id = 1
+    step.approver_user_id = 2
+
+    assert_not step.valid?
+    assert_includes step.errors.attribute_names, :approver_user_id
+  end
+
   def test_no_route_means_no_approval
     ApprovalRoute.delete_all
     issue = Issue.find(1)

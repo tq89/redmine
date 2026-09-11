@@ -59,6 +59,38 @@ class ApprovalMailerTest < ActiveSupport::TestCase
     assert_not_includes ActionMailer::Base.deliveries.flat_map(&:to), signer.mail
   end
 
+  def test_only_mails_the_named_person_when_the_step_assigns_one
+    @route.step_at(0).update!(:approver_user_id => 2)
+
+    deliver
+
+    assert_equal [User.find(2).mail], ActionMailer::Base.deliveries.flat_map(&:to).uniq
+  end
+
+  def test_only_mails_the_named_role_when_the_step_assigns_one
+    @route.step_at(0).update!(:approver_role_id => 1)
+
+    deliver
+
+    recipients = ActionMailer::Base.deliveries.flat_map(&:to).uniq
+    assert recipients.any?, 'role 1 holds the transition here'
+    recipients.each do |mail|
+      user = User.find_by_mail(mail)
+      assert user.roles_for_project(@issue.project).map(&:id).include?(1),
+             "#{mail} is not in role 1"
+    end
+  end
+
+  def test_sends_nothing_when_the_named_person_cannot_make_the_transition
+    @route.step_at(0).update!(:approver_user_id => 2)
+    WorkflowTransition.where(:tracker_id => @issue.tracker_id, :old_status_id => 1,
+                             :new_status_id => 2).delete_all
+
+    deliver
+
+    assert_empty ActionMailer::Base.deliveries
+  end
+
   def test_sends_nothing_when_nobody_holds_the_transition
     WorkflowTransition.where(:tracker_id => @issue.tracker_id, :old_status_id => 1,
                              :new_status_id => 2).delete_all

@@ -1,9 +1,9 @@
 <h2><%= l(:label_approval_route) %>: <%= h @route.name %></h2>
 
-<%= labelled_form_for @route, :url => approval_route_path(@route), :method => :put do |f| %>
+<%= labelled_form_for @route, :url => project_approval_route_path(@project, @route), :method => :put do |f| %>
   <%= render :partial => 'form', :locals => {:f => f} %>
   <p>
     <%= submit_tag l(:button_save) %>
-    <%= link_to l(:button_cancel), approval_routes_path %>
+    <%= link_to l(:button_cancel), settings_project_path(@project, :tab => 'approval_routes') %>
   </p>
 <% end %>

@@ -47,14 +47,26 @@ class ApprovalMailer < Mailer
       values.is_a?(Hash) && values['notify_on_pending_approval'].to_s == '1'
     end
 
-    # Narrowed by the roles that actually hold the transition before the exact
-    # per-user check, so a large project does not mean a check per member.
+    # Narrowed before the exact per-user check so a large project does not mean
+    # a check per member: to the named approver when the step has one, and
+    # otherwise to the roles that actually hold the transition.
     def recipients(issue, step, actor = nil)
-      role_ids = WorkflowTransition.
-                 where(:tracker_id => issue.tracker_id,
-                       :old_status_id => issue.status_id,
-                       :new_status_id => step.issue_status_id).
-                 distinct.pluck(:role_id)
+      candidates(issue, step).select {|user| notifiable?(user, issue, actor)}
+    end
+
+    def candidates(issue, step)
+      return Array(User.active.find_by_id(step.approver_user_id)) if step.approver_user_id.present?
+
+      role_ids =
+        if step.approver_role_id.present?
+          [step.approver_role_id]
+        else
+          WorkflowTransition.
+            where(:tracker_id => issue.tracker_id,
+                  :old_status_id => issue.status_id,
+                  :new_status_id => step.issue_status_id).
+            distinct.pluck(:role_id)
+        end
       return [] if role_ids.empty?
 
       User.active.
@@ -62,13 +74,14 @@ class ApprovalMailer < Mailer
         where(:members => {:project_id => issue.project_id}).
         where(:member_roles => {:role_id => role_ids}).
         distinct.
-        to_a.
-        select {|user| notifiable?(user, issue, actor)}
+        to_a
     end
 
     # Being asked to sign is a direct request rather than a subscription, so
     # the "only things I watch" preferences do not apply; users who switched
-    # mail off entirely are still left alone.
+    # mail off entirely are still left alone. can_approve? already applies the
+    # step's approver assignment, so a step that names its approver only ever
+    # mails that role or that person.
     def notifiable?(user, issue, actor)
       return false if actor && user.id == actor.id
       return false if user.mail.blank? || user.mail_notification == 'none'

@@ -83,6 +83,53 @@ class PendingApprovalsTest < ActiveSupport::TestCase
     assert_not_includes pending_ids(User.find(2)), @issue.id
   end
 
+  # A step that names its approver must not reach anybody else: not the panel,
+  # not the bell, not the mail.
+  def test_step_assigned_to_a_role_reaches_only_that_role
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    route.step_at(0).update!(:approver_role_id => 1)
+
+    assert_includes pending_ids(User.find(2)), @issue.id, 'jsmith holds role 1'
+
+    route.step_at(0).update!(:approver_role_id => 2)
+    assert_not_includes pending_ids(User.find(2)), @issue.id,
+                        'jsmith does not hold role 2 on this project'
+  end
+
+  def test_step_assigned_to_a_person_reaches_only_them
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    route.step_at(0).update!(:approver_user_id => 2)
+
+    assert_includes pending_ids(User.find(2)), @issue.id
+
+    route.step_at(0).update!(:approver_user_id => 3)
+    assert_not_includes pending_ids(User.find(2)), @issue.id
+  end
+
+  def test_assignment_narrows_and_never_widens
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    # Name a user who has no workflow transition into the step's status.
+    route.step_at(0).update!(:approver_user_id => 2)
+    WorkflowTransition.where(:tracker_id => @issue.tracker_id, :old_status_id => 1,
+                             :new_status_id => 2).delete_all
+
+    assert_not_includes pending_ids(User.find(2)), @issue.id,
+                        'being named cannot grant a transition the workflow denies'
+  end
+
+  def test_unassigned_step_is_open_to_anyone_the_workflow_allows
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+
+    assert_includes pending_ids(User.find(2)), @issue.id
+  end
+
+  def test_agrees_with_can_approve_for_an_assigned_step
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    route.step_at(0).update!(:approver_role_id => 2)
+
+    assert_agrees_with_can_approve 'step assigned to a role the user lacks'
+  end
+
   # The bulk lookup reimplements Issue#can_approve? for speed, so it has to
   # keep agreeing with it. These cases cover the branches that differ most:
   # author/assignee transitions, closed targets and subtasks.

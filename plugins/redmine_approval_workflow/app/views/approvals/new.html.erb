@@ -1,4 +1,4 @@
-<h2><%= @approving ? l(:label_approve_step) : l(:label_reject_step) %></h2>
+<h2><%= @approving ? (@step&.action_label || l(:button_approve)) : l(:label_reject_step) %></h2>
 
 <%= form_tag(issue_approvals_path(@issue), :method => :post) do %>
   <%= hidden_field_tag 'decision', @approving ? 'approve' : 'reject' %>
@@ -24,7 +24,7 @@
   </div>
 
   <p>
-    <%= submit_tag(@approving ? l(:button_approve) : l(:button_reject_approval)) %>
+    <%= submit_tag(@approving ? (@step&.action_label || l(:button_approve)) : l(:button_reject_approval)) %>
     <%= link_to l(:button_cancel), issue_path(@issue) %>
   </p>
 <% end %>

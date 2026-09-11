@@ -46,13 +46,24 @@ Kiểm tra `read_only_attribute_names` phải làm tường minh vì plugin gán
 `due_date` trực tiếp chứ không qua `safe_attributes=` — cùng lý do như với
 status.
 
-## Nút nhắc ký trên thanh menu
+## Nút chuông cạnh ảnh đại diện
 
-Khi có bước đang chờ chữ ký của bạn, thanh menu trên cùng hiện mục
-**Chờ ký (n)** dẫn tới danh sách công việc. Mục này tự ẩn khi không còn gì để ký.
+Góc phải thanh trên cùng, ngay cạnh nút profile, có **nút chuông** với số đếm
+đỏ. Nhấp vào mở panel gồm hai phần:
 
-Caption của menu bị `h()` escape (`lib/redmine/menu_manager.rb:187`) nên số đếm
-là text thường, không phải badge HTML.
+- **Chờ tôi ký** — mỗi dòng hiện mã công việc, tiêu đề, dự án, tên bước và
+  trạng thái sẽ chuyển sang; kèm **nút ký nhanh** (dùng đúng nhãn của bước, có
+  hộp xác nhận) và liên kết *Ký kèm ý kiến* nếu muốn ghi chú.
+- **Công việc quá hạn** — việc đang mở được giao cho bạn (hoặc cho nhóm của
+  bạn) đã qua hạn, kèm số ngày trễ.
+
+Chuông dùng lại Stimulus controller `dropdown` của Redmine nên tự đóng khi bấm
+ra ngoài hoặc nhấn Escape. Chuông ẩn với khách chưa đăng nhập, và quản trị viên
+có thể tắt hẳn trong cấu hình plugin.
+
+Nút chuông được chèn qua hook `view_layouts_base_profile_menu_top` — một dòng
+thêm vào `app/views/layouts/base.html.erb` của core, vì khu vực profile-menu
+vốn không có hook nào.
 
 **Về hiệu năng** — mục này render trên *mọi* trang, nên phép tra cứu được viết
 theo lô: routes, chữ ký và workflow transitions mỗi thứ lấy **một** lần rồi
@@ -64,7 +75,9 @@ theo lô: routes, chữ ký và workflow transitions mỗi thứ lấy **một**
 `PendingApprovalsTest` ghim đường nhanh vào nó bằng các test so sánh kết quả
 hai bên. **Sửa một bên thì phải sửa bên kia.**
 
-Quản trị viên có thể tắt nút này (Quản trị → Plugins → Cấu hình) nếu máy chủ yếu.
+Danh sách quá hạn tốn thêm đúng **một** truy vấn, giới hạn 20 dòng.
+
+Quản trị viên có thể tắt chuông (Quản trị → Plugins → Cấu hình) nếu máy chủ yếu.
 
 ## Gửi email khi tới lượt ký (tuỳ chọn)
 
@@ -110,12 +123,36 @@ bundle exec rake redmine:plugins:migrate RAILS_ENV=production
 
 Bật module **Lưu trình ký & Gia hạn** trong Cài đặt dự án → Mô-đun.
 
-## Thiết lập
+## Thiết lập — trong từng dự án
 
-**Quản trị → Lưu trình ký**: tạo lưu trình gồm tên, tracker, dự án (để trống =
-áp dụng mọi dự án), trạng thái khi bị từ chối, và danh sách bước theo thứ tự.
+Lưu trình được khai báo tại **Cài đặt dự án → thẻ "Lưu trình ký"**, và **chỉ áp
+dụng cho dự án đó**. Cần quyền *Quản lý lưu trình ký* (Quản trị → Vai trò).
 
-Lưu trình gắn với một dự án được ưu tiên hơn lưu trình chung của cùng tracker.
+Mỗi lưu trình gồm tên, tracker, trạng thái khi bị từ chối, và danh sách bước.
+Mỗi **bước** khai báo:
+
+| Trường | Ý nghĩa |
+|---|---|
+| Tên bước | ví dụ "Trưởng bộ phận duyệt" |
+| Trạng thái sau khi ký | trạng thái công việc chuyển sang |
+| **Người ký** | một **vai trò** HOẶC một **người** cụ thể — không chọn cả hai |
+| **Nhãn nút** | chữ trên nút thao tác, ví dụ "Trình ký", "Phê duyệt"; để trống = "Ký duyệt" |
+
+### Chỉ định người ký chỉ **thu hẹp**, không bao giờ mở rộng
+
+Nền tảng vẫn là quyền chuyển trạng thái trong luồng công việc. Chỉ định ở bước
+lọc thêm bên trong đó:
+
+```
+được ký  =  luồng công việc cho phép chuyển trạng thái
+            VÀ (bước không chỉ định  HOẶC  đúng vai trò/người được chỉ định)
+```
+
+Chỉ định một người **không** cấp cho họ quyền chuyển trạng thái mà luồng công
+việc từ chối — có test riêng cho điều này.
+
+Khi bước đã chỉ định, **chỉ người đó** thấy nút ký, thấy công việc trên chuông,
+và nhận email. Ba nơi dùng chung một quy tắc.
 
 **Quản trị → Plugins → Cấu hình**:
 
@@ -146,8 +183,7 @@ trong tab thông thường của Redmine.
 |---|---|
 | Xem lưu trình ký | Hiện panel lưu trình trên trang công việc |
 | Gia hạn công việc | Cho phép bấm nút Gia hạn (còn phải qua quyền trên trường `due_date`) |
-
-Quản lý lưu trình chỉ dành cho quản trị viên hệ thống.
+| Quản lý lưu trình ký | Hiện thẻ "Lưu trình ký" trong Cài đặt dự án |
 
 ## Kiểm thử
 
@@ -155,4 +191,4 @@ Quản lý lưu trình chỉ dành cho quản trị viên hệ thống.
 bundle exec rails test plugins/redmine_approval_workflow/test RAILS_ENV=test
 ```
 
-84 test, 284 assertion.
+101 test, 355 assertion.

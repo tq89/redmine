@@ -18,6 +18,20 @@ vi:
   label_status_change: "Chuyển trạng thái"
   label_order: "Thứ tự"
   label_all_projects: "Tất cả dự án"
+  label_approver: "Người ký"
+  label_approver_anyone: "(theo luồng công việc)"
+  label_assigned_role: "Vai trò"
+  label_assigned_person: "Người"
+  label_button_label: "Nhãn nút"
+  label_approval_bell_title: "Việc cần xử lý"
+  label_approval_with_comment: "Ký kèm ý kiến"
+  label_overdue_issue_plural: "Công việc quá hạn"
+  label_overdue_by_days: "quá %{count} ngày"
+  text_confirm_quick_sign: "Ký duyệt và chuyển sang trạng thái \"%{status}\"?"
+  text_project_approval_routes_hint: "Lưu trình khai báo ở đây chỉ áp dụng cho dự án này."
+  text_routes_moved_to_project_settings: "Lưu trình ký được khai báo trong Cài đặt của từng dự án, thẻ \"Lưu trình ký\"."
+  text_approver_hint: "Chọn vai trò HOẶC một người cụ thể, không chọn cả hai. Để trống thì ai có quyền chuyển trạng thái đều ký được. Khi đã chỉ định, chỉ người đó thấy nút ký, thấy thông báo và nhận email."
+  text_button_label_hint: "Nhãn hiển thị trên nút thao tác của bước, ví dụ \"Trình ký\", \"Phê duyệt\". Để trống thì dùng \"Ký duyệt\"."
   label_pending_approval_plural: "Công việc chờ tôi ký"
   label_pending_approval_with_count: "Chờ ký (%{count})"
   label_no_pending_approval: "Không có công việc nào đang chờ bạn ký."
@@ -82,6 +96,10 @@ vi:
   activerecord:
     errors:
       models:
+        approval_route_step:
+          attributes:
+            approver_user_id:
+              only_one_approver_allowed: "chỉ được chọn vai trò hoặc một người, không chọn cả hai"
         issue_extension:
           attributes:
             new_due_date:
