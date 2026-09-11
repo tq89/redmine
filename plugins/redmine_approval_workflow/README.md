@@ -61,9 +61,13 @@ Chuông dùng lại Stimulus controller `dropdown` của Redmine nên tự đón
 ra ngoài hoặc nhấn Escape. Chuông ẩn với khách chưa đăng nhập, và quản trị viên
 có thể tắt hẳn trong cấu hình plugin.
 
-Nút chuông được chèn qua hook `view_layouts_base_profile_menu_top` — một dòng
-thêm vào `app/views/layouts/base.html.erb` của core, vì khu vực profile-menu
-vốn không có hook nào.
+Redmine không có hook nào ở khu vực profile-menu lẫn chân trang. Thay vì vá
+`base.html.erb`, chuông và dòng chân trang được render trên hook **có sẵn**
+`view_layouts_base_body_bottom` vào một `<div hidden>`, rồi một đoạn script nội
+tuyến dời chúng vào `.profile-menu` và `#footer`. Script chạy cuối `<body>` nên
+cả hai đích đã có trong DOM; thứ nào không tìm được đích thì bị bỏ cùng div ẩn
+chứ không rơi lạc xuống cuối trang. Redmine không bật CSP nên script nội tuyến
+chạy bình thường.
 
 **Về hiệu năng** — mục này render trên *mọi* trang, nên phép tra cứu được viết
 theo lô: routes, chữ ký và workflow transitions mỗi thứ lấy **một** lần rồi
@@ -113,10 +117,51 @@ hỏng việc tạo công việc.
 > tiến trình Puma). Nếu máy chủ đang căng, cân nhắc kỹ trước khi bật thêm
 > nguồn gửi mail.
 
+## Không sửa một file core nào
+
+Toàn bộ plugin nằm gọn trong `plugins/redmine_approval_workflow/`. Kiểm chứng:
+
+```bash
+git diff origin/master -- . ':(exclude)plugins/'
+# chỉ còn .gitignore (để git theo dõi được thư mục plugin)
+```
+
+Điều này quan trọng khi nâng cấp Redmine: một bản sao `config/routes.rb` hay
+`lib/redmine/preparation.rb` bị ghim lại sẽ **âm thầm xoá** mọi route và quyền
+mà bản mới thêm vào — app vẫn chạy, vẫn xanh healthcheck, chỉ là sai. Không có
+file core nào bị ghi đè thì rủi ro đó biến mất, và triển khai chỉ còn là copy
+một thư mục.
+
+Bốn thứ từng phải sửa core, nay nằm trong plugin:
+
+| Việc | Chỗ ở mới |
+|---|---|
+| Route `/sw.js` | `config/routes.rb` của plugin — Redmine eval nó *bên trong* `routes.draw`, sau mọi route core |
+| Action + view `/sw.js` | `ServiceWorkerController` + `app/views/service_worker/show.js.erb` của plugin |
+| Menu Help → "Liên hệ" | `Redmine::MenuManager::Mapper#delete(:help)` rồi push lại, trong `init.rb` |
+| Chuông + dòng chân trang | hook `view_layouts_base_body_bottom` + script dời chỗ |
+
+## Kill-switch `/sw.js`
+
+Plugin phục vụ một service worker tự huỷ tại `/sw.js`. Redmine không có service
+worker, nhưng trình duyệt từng đăng ký một cái ở cùng origin sẽ hỏi `/sw.js`
+mỗi lần điều hướng. Trả 404 **không** gỡ được nó — nó vẫn kiểm soát site và có
+thể phục vụ asset cũ từ cache riêng. Trả về một worker tự xoá cache rồi
+`unregister()` giúp các máy đó tự dọn.
+
+Hai chi tiết khiến nó không thể là một controller bình thường:
+
+- `skip_before_action :check_if_login_required, :check_password_change,
+  :check_twofa_activation` — worker được nạp trước khi ai đăng nhập, và trình
+  duyệt đọc một redirect sang trang login là script hỏng.
+- `skip_after_action :verify_same_origin_request` — `protect_from_forgery` chặn
+  mọi response `text/javascript` cho GET không có `X-Requested-With`, mà service
+  worker được nạp đúng kiểu đó. Thiếu dòng này là **422**, không phải 200.
+
 ## Cài đặt
 
 ```bash
-# copy plugin vào thư mục plugins/ rồi:
+# copy thư mục plugin vào plugins/ rồi:
 bundle exec rake redmine:plugins:migrate RAILS_ENV=production
 # restart Redmine
 ```
@@ -191,4 +236,4 @@ trong tab thông thường của Redmine.
 bundle exec rails test plugins/redmine_approval_workflow/test RAILS_ENV=test
 ```
 
-101 test, 355 assertion.
+112 test, 410 assertion.

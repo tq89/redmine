@@ -138,18 +138,59 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     assert_response :forbidden
   end
 
-  def test_bell_sits_in_the_profile_menu_with_a_count
+  # The bell and the footer credit are rendered on Redmine's stock body_bottom
+  # hook and moved into place client-side, so the server-rendered markup sits
+  # inside the hidden staging wrapper. These assertions check what the server
+  # sends; the move itself is the script's job.
+  def test_bell_is_rendered_on_the_stock_body_bottom_hook
     build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
     log_user('jsmith', 'jsmith')
 
     get '/'
 
     assert_response :success
-    assert_select '.profile-menu #approval-bell' do
-      assert_select 'a.approval-bell-trigger.has-items'
-      assert_select 'span.approval-bell-count'
-      assert_select '.approval-bell-panel .approval-bell-item', :minimum => 1
+    assert_select 'div#approval-layout-additions[hidden]' do
+      assert_select '#approval-bell a.approval-bell-trigger.has-items'
+      assert_select '#approval-bell span.approval-bell-count'
+      assert_select '#approval-bell .approval-bell-panel .approval-bell-item', :minimum => 1
+      assert_select '#approval-footer-credit'
     end
+  end
+
+  def test_relocation_script_targets_the_profile_menu_and_footer
+    log_user('jsmith', 'jsmith')
+
+    get '/'
+
+    assert_response :success
+    # The script only works if these selectors still exist in the layout, so
+    # assert both the script's intent and the targets it depends on.
+    assert_select '.profile-menu'
+    assert_select '#footer'
+    assert_include "document.querySelector('.profile-menu')", @response.body
+    assert_include "document.getElementById('footer')", @response.body
+    assert_include "document.getElementById('approval-bell')", @response.body
+  end
+
+  def test_footer_credit_is_shipped_by_the_plugin_not_the_layout
+    log_user('jsmith', 'jsmith')
+
+    get '/'
+
+    assert_response :success
+    assert_select '#approval-footer-credit', :text => 'Vận Hành bởi Đỗ Quí'
+  end
+
+  # The Help entry is repointed from init.rb via MenuManager, not by editing
+  # lib/redmine/preparation.rb.
+  def test_top_menu_help_entry_points_at_the_contact_page
+    log_user('jsmith', 'jsmith')
+
+    get '/'
+
+    assert_response :success
+    assert_select '#top-menu a[href=?]', 'https://trongqui.info', :text => 'Liên hệ'
+    assert_select '#top-menu a[href*=?]', 'redmine.org/guide', 0
   end
 
   def test_bell_offers_a_quick_sign_button_using_the_step_label

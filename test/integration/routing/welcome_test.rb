@@ -23,6 +23,5 @@ class RoutingWelcomeTest < Redmine::RoutingTest
   def test_welcome
     should_route 'GET /' => 'welcome#index'
     should_route 'GET /robots.txt' => 'welcome#robots', :format => 'txt'
-    should_route 'GET /sw.js' => 'welcome#service_worker', :format => 'js'
   end
 end

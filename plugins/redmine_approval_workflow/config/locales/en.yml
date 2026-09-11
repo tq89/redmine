@@ -22,6 +22,7 @@ en:
   label_assigned_role: "Role"
   label_assigned_person: "Person"
   label_button_label: "Button label"
+  text_operated_by: "Vận Hành bởi Đỗ Quí"
   label_approval_bell_title: "Things needing you"
   label_approval_with_comment: "Sign with a comment"
   label_overdue_issue_plural: "Overdue issues"

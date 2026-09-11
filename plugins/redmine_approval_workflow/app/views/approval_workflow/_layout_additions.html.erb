@@ -1,0 +1,41 @@
+<%
+  # Rendered on Redmine's stock view_layouts_base_body_bottom hook, then moved
+  # into place by the script below. Going through an existing hook is what keeps
+  # this plugin free of core edits: a hook of our own in base.html.erb would mean
+  # shipping a patched copy of the layout, which silently reverts whatever a
+  # later Redmine adds to it.
+  show_bell = User.current.logged? && RedmineApprovalWorkflow::PendingApprovals.enabled?
+%>
+<div id="approval-layout-additions" hidden>
+  <% if show_bell %>
+    <%= render :partial => 'approval_workflow/bell' %>
+  <% end %>
+  <span id="approval-footer-credit"><%= l(:text_operated_by) %></span>
+</div>
+
+<script>
+  // Runs inline at the end of <body>, so both targets are already parsed and
+  // the move happens before the browser paints them. Redmine sets no Content
+  // Security Policy, so an inline script is served as-is.
+  (function () {
+    var source = document.getElementById('approval-layout-additions');
+    if (!source) { return; }
+
+    var bell = document.getElementById('approval-bell');
+    var profileMenu = document.querySelector('.profile-menu');
+    if (bell && profileMenu) {
+      profileMenu.insertBefore(bell, profileMenu.firstChild);
+    }
+
+    var credit = document.getElementById('approval-footer-credit');
+    var footer = document.getElementById('footer');
+    if (credit && footer) {
+      footer.appendChild(document.createElement('br'));
+      footer.appendChild(credit);
+    }
+
+    // Anything that found no home stays inside the hidden wrapper and is
+    // dropped with it, rather than appearing loose at the foot of the page.
+    source.remove();
+  })();
+</script>

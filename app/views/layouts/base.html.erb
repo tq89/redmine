@@ -64,7 +64,6 @@
   </div>
 
   <div class="profile-menu">
-    <%= call_hook(:view_layouts_base_profile_menu_top) %>
     <% if User.current.logged? %>
     <div id="account" class="dropdown" data-controller="dropdown">
       <a href="#" class="dropdown-trigger" data-action="click->dropdown#toggle">
@@ -153,8 +152,6 @@
 </div>
 <div id="footer">
     Powered by <%= link_to Redmine::Info.app_name, Redmine::Info.url, :target => '_blank', :rel => 'noopener' %> &copy; 2006-2026 Jean-Philippe Lang
-    <br />
-    Vận Hành bởi Đỗ Quí
 </div>
 
 <div id="ajax-indicator" style="display:none;">

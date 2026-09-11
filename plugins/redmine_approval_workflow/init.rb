@@ -69,5 +69,19 @@ end
 # page partial rendered by the view hook.
 ApplicationController.helper(ApprovalWorkflowHelper)
 
-# Touch the hook class so it registers itself even when it is not eager loaded.
-RedmineApprovalWorkflow::Hooks
+# Instantiating the listener loads the class, which is what registers it with
+# Redmine::Hook -- otherwise it stays unregistered until something else happens
+# to reference it, which in development is never.
+RedmineApprovalWorkflow::Hooks.instance
+
+# Repoint the top menu's Help entry at our own contact page. Redmine builds that
+# entry in lib/redmine/preparation.rb; rather than editing core, the entry is
+# removed and pushed again from here. Mapper#delete is a no-op when the item is
+# absent, so re-running this on a development reload is harmless.
+Redmine::MenuManager.map :top_menu do |menu|
+  menu.delete(:help)
+  menu.push :help, 'https://trongqui.info',
+            :caption => 'Liên hệ',
+            :html => {:target => '_blank', :rel => 'noopener'},
+            :last => true
+end

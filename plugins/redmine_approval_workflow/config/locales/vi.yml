@@ -23,6 +23,7 @@ vi:
   label_assigned_role: "Vai trò"
   label_assigned_person: "Người"
   label_button_label: "Nhãn nút"
+  text_operated_by: "Vận Hành bởi Đỗ Quí"
   label_approval_bell_title: "Việc cần xử lý"
   label_approval_with_comment: "Ký kèm ý kiến"
   label_overdue_issue_plural: "Công việc quá hạn"

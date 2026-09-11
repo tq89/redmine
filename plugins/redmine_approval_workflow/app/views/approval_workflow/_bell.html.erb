@@ -1,12 +1,10 @@
 <%
-  # The hook fires on every layout render, including for anonymous visitors and
-  # when an administrator has switched the reminder off.
-  show_bell = User.current.logged? && RedmineApprovalWorkflow::PendingApprovals.enabled?
-  pending = show_bell ? User.current.pending_approval_issues : []
-  overdue = show_bell ? User.current.overdue_issues : []
+  # Rendered only from _layout_additions, which decides whether the bell is
+  # shown at all.
+  pending = User.current.pending_approval_issues
+  overdue = User.current.overdue_issues
   total = pending.size + overdue.size
 %>
-<% if show_bell %>
 <div id="approval-bell" class="dropdown" data-controller="dropdown">
   <a href="#" class="dropdown-trigger approval-bell-trigger <%= 'has-items' if total > 0 %>"
      title="<%= l(:label_approval_bell_title) %>"
@@ -85,4 +83,3 @@
     </div>
   </div>
 </div>
-<% end %>
