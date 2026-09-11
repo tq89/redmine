@@ -120,6 +120,20 @@ class ApprovalMailerTest < ActiveSupport::TestCase
     assert_empty ActionMailer::Base.deliveries
   end
 
+  # Mailer#mail builds the From display name and the Sender header from @author,
+  # which only works if it is set on the mailer instance.
+  def test_mail_is_attributed_to_whoever_triggered_it
+    @route.step_at(0).update!(:approver_user_id => 3)
+    actor = User.find(2)
+
+    ApprovalMailer.deliver_approval_pending(@issue.reload, actor)
+
+    mail = ActionMailer::Base.deliveries.first
+    assert_not_nil mail
+    assert_include actor.name, mail.header['From'].to_s
+    assert_equal actor.login, mail.header['X-Redmine-Sender'].to_s
+  end
+
   def test_mail_names_the_step_and_the_target_status
     deliver
 

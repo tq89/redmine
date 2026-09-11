@@ -18,6 +18,11 @@
   // the move happens before the browser paints them. Redmine sets no Content
   // Security Policy, so an inline script is served as-is.
   (function () {
+    var root = document.documentElement;
+    // A second copy of this script would otherwise append a second credit line.
+    if (root.getAttribute('data-approval-relocated')) { return; }
+    root.setAttribute('data-approval-relocated', '1');
+
     var source = document.getElementById('approval-layout-additions');
     if (!source) { return; }
 
@@ -25,11 +30,20 @@
     var profileMenu = document.querySelector('.profile-menu');
     if (bell && profileMenu) {
       profileMenu.insertBefore(bell, profileMenu.firstChild);
+      // nav.top-menu is a flex row, but .profile-menu itself carries no layout
+      // in core, so its children stack: a block #account after the bell would
+      // drop onto a second line and leave the avatar clipped out of the bar.
+      // The class is added here rather than styling .profile-menu outright, so
+      // nothing changes for anyone whose bell is switched off.
+      profileMenu.classList.add('has-approval-bell');
     }
 
     var credit = document.getElementById('approval-footer-credit');
     var footer = document.getElementById('footer');
-    if (credit && footer) {
+    // Skip when the footer already says this -- an older deployment that still
+    // carries the patched core layout prints the same line itself, and two of
+    // them is worse than none.
+    if (credit && footer && footer.textContent.indexOf(credit.textContent.trim()) === -1) {
       footer.appendChild(document.createElement('br'));
       footer.appendChild(credit);
     }

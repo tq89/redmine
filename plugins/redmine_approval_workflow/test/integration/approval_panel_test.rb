@@ -172,6 +172,30 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     assert_include "document.getElementById('approval-bell')", @response.body
   end
 
+  # nav.top-menu is a flex row but .profile-menu has no layout of its own in
+  # core, so a block #account beside the bell drops to a second line and the
+  # avatar is clipped out of the bar. The script tags the container for it.
+  def test_relocation_gives_the_profile_menu_a_row_layout
+    log_user('jsmith', 'jsmith')
+
+    get '/'
+
+    assert_response :success
+    assert_include "profileMenu.classList.add('has-approval-bell')", @response.body
+  end
+
+  # An older deployment still carrying the patched core layout prints the credit
+  # itself; two of them is worse than none.
+  def test_credit_is_not_added_when_the_footer_already_says_it
+    log_user('jsmith', 'jsmith')
+
+    get '/'
+
+    assert_response :success
+    assert_include 'footer.textContent.indexOf', @response.body
+    assert_include "root.getAttribute('data-approval-relocated')", @response.body
+  end
+
   def test_footer_credit_is_shipped_by_the_plugin_not_the_layout
     log_user('jsmith', 'jsmith')
 
@@ -272,6 +296,51 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     # Every listed row must name the step and the status it leads to.
     assert_select 'table.issues tbody tr', :minimum => 1
     assert_select 'table.issues tbody tr td', :text => /#{@issue.approval_route.step_at(0).issue_status.name}/
+  end
+
+  # The user-visible answer to "does the reminder clear once I have signed":
+  # sign through the real button, then look at the real bell on the next page.
+  def test_bell_drops_the_issue_after_signing_it
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    # Core fixtures let role 1 move between every pair of statuses, so step 1
+    # would still be jsmith's; take that away to isolate the clearing.
+    WorkflowTransition.where(:tracker_id => @issue.tracker_id, :role_id => 1,
+                             :old_status_id => 2, :new_status_id => 3).delete_all
+    log_user('jsmith', 'jsmith')
+
+    get '/'
+    assert_select '#approval-bell a.approval-bell-trigger.has-items'
+    assert_select "#approval-bell a[href=?]", "/issues/#{@issue.id}"
+    before = css_select('#approval-bell span.approval-bell-count').first.text.to_i
+    assert before > 0
+
+    post "/issues/#{@issue.id}/approvals", :params => {:decision => 'approve'}
+    assert_redirected_to "/issues/#{@issue.id}"
+
+    get '/'
+    assert_response :success
+    # The signed issue is gone. Other issues on the same route legitimately
+    # remain, so the count drops by one rather than to zero.
+    assert_select "#approval-bell a[href=?]", "/issues/#{@issue.id}", 0
+    after = css_select('#approval-bell span.approval-bell-count').first.text.to_i
+    assert_equal before - 1, after, 'the count must drop by exactly the one signed'
+  end
+
+  def test_pending_page_drops_the_issue_after_an_ordinary_status_edit
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    WorkflowTransition.where(:tracker_id => @issue.tracker_id, :role_id => 1,
+                             :old_status_id => 2, :new_status_id => 3).delete_all
+    log_user('jsmith', 'jsmith')
+
+    get '/pending_approvals'
+    assert_select "table.issues a[href=?]", "/issues/#{@issue.id}"
+
+    # Not the approval screen: the ordinary issue form.
+    put "/issues/#{@issue.id}", :params => {:issue => {:status_id => 2}}
+
+    get '/pending_approvals'
+    assert_response :success
+    assert_select "table.issues a[href=?]", "/issues/#{@issue.id}", 0
   end
 
   def test_pending_page_requires_login

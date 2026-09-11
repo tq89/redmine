@@ -8,10 +8,15 @@
 class ApprovalMailer < Mailer
   # The first argument must be a User: Mailer#process switches User.current and
   # the locale to the recipient so the mail is written in their language.
-  def approval_pending(user, issue, step_name, target_status_name)
+  def approval_pending(user, issue, step_name, target_status_name, actor_id = nil)
     redmine_headers 'Project' => issue.project.identifier,
                     'Issue-Tracker' => issue.tracker.name,
                     'Issue-Id' => issue.id
+    # Mailer#mail reads @author off the mailer INSTANCE, for the From display
+    # name, the Sender header and the "don't notify me about my own actions"
+    # preference. Setting it on the class, as deliver_approval_pending used to,
+    # looked right and did nothing.
+    @author = User.find_by_id(actor_id)
     @user = user
     @issue = issue
     @step_name = step_name
@@ -36,9 +41,9 @@ class ApprovalMailer < Mailer
       step = issue.current_approval_step
       return if step.nil?
 
-      @author = actor
       recipients(issue, step, actor).each do |user|
-        approval_pending(user, issue, step.name, step.issue_status.name).deliver_later
+        approval_pending(user, issue, step.name, step.issue_status.name,
+                         actor&.id).deliver_later
       end
     end
 

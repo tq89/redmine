@@ -31,8 +31,18 @@ table.approval-step-form input[type=text] { width: 100%; }
 }
 #top-menu a.pending-approvals-alert:hover { background: #a01c1c; }
 
-/* Bell next to the avatar in the top bar */
-#approval-bell { display: inline-block; position: relative; vertical-align: middle; margin-right: 10px; }
+/* Bell next to the avatar in the top bar.
+   nav.top-menu is a flex row (application.css), but .profile-menu carries no
+   layout of its own in core, so its children stack as blocks. The class is put
+   on by the relocation script, so this only applies where the bell landed. */
+.profile-menu.has-approval-bell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.profile-menu.has-approval-bell > * { flex: 0 0 auto; }
+
+#approval-bell { display: inline-block; position: relative; vertical-align: middle; }
 #approval-bell .approval-bell-trigger { display: inline-flex; align-items: center; color: inherit; position: relative; }
 #approval-bell .approval-bell-icon { display: block; }
 #approval-bell .approval-bell-count {
