@@ -25,6 +25,7 @@
 /log/mongrel_debug
 /plugins/*
 !/plugins/README
+!/plugins/redmine_approval_workflow
 /public/assets/*
 /public/dispatch.*
 /public/plugin_assets/*

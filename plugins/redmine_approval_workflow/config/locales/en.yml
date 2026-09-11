@@ -1,0 +1,76 @@
+en:
+  label_approval_route: "Approval route"
+  label_approval_route_plural: "Approval routes"
+  label_approval_route_new: "New approval route"
+  label_approval_step: "Approval step"
+  label_approval_step_plural: "Approval steps"
+  label_approval_step_done: "Signed"
+  label_approval_step_current: "Awaiting signature"
+  label_approval_step_pending: "Not reached yet"
+  label_approval_completed: "Approval route completed"
+  label_approval_rejected: "Rejected"
+  label_approval_history: "Approval history"
+  label_approve_step: "Approve"
+  label_reject_step: "Reject"
+  label_rejected_status: "Status when rejected"
+  label_target_status: "Status after signing"
+  label_status_change: "Status change"
+  label_order: "Order"
+  label_all_projects: "All projects"
+
+  button_approve: "Approve"
+  button_reject_approval: "Reject"
+
+  notice_approval_signed: "Step signed."
+  notice_approval_rejected: "Rejected and sent back one step."
+
+  error_approval_already_completed: "The approval route is already complete, there is no step left to sign."
+  error_approval_no_target_status: "No target status could be determined. Check the route configuration."
+
+  warning_approval_out_of_sync: "The current issue status does not match the last signed step. Someone may have changed the status by hand, outside the route."
+
+  text_approval_journal_signed: "Approved step: %{step}"
+  text_approval_journal_rejected: "Rejected step: %{step}"
+  text_approval_route_project_hint: "Leave blank to apply to every project. A route bound to a project takes precedence over a global one for the same tracker."
+  text_rejected_status_hint: "Status the issue returns to when rejected at the very first step."
+  text_approval_step_hint: "Steps run in ascending order. Permission to sign a step is exactly the permission to move the issue into that step's status, set in Administration → Workflow."
+
+  label_issue_extension: "Extension"
+  label_issue_extension_plural: "Due date extensions"
+  label_current_due_date: "Current due date"
+  label_new_due_date: "New due date"
+  label_extension_reason: "Reason"
+  label_extension_days: "Days"
+  label_extension_from_to: "From → To"
+  label_extension_limit: "Limit per extension"
+  label_max_extension_days: "at most %{count} days each time"
+  label_no_extension_limit: "no limit"
+
+  button_extend_due_date: "Extend"
+
+  notice_issue_extended: "Due date extended to %{date}."
+
+  text_extension_journal: "Extended by %{days} days, to %{date}"
+  text_max_extension_days_hint: "Maximum number of days a single extension may add. Enter 0 for no limit."
+  text_max_extension_count_hint: "Maximum number of extensions per issue. Enter 0 for no limit."
+
+  field_new_due_date: "New due date"
+  field_reason: "Reason"
+  field_active: "Active"
+
+  setting_max_extension_days: "Maximum days per extension"
+  setting_max_extension_count: "Maximum number of extensions"
+  setting_require_extension_reason: "Require a reason for extensions"
+
+  permission_view_approval_workflow: "View approval route"
+  permission_extend_issue_due_date: "Extend issue due date"
+  project_module_approval_workflow: "Approval routes & extensions"
+
+  activerecord:
+    errors:
+      models:
+        issue_extension:
+          attributes:
+            new_due_date:
+              must_be_after_base_date: "must be after the current due date"
+              exceeds_max_extension_days: "exceeds the limit of %{count} days per extension"

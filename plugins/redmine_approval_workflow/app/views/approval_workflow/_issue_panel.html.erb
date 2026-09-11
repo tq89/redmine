@@ -1,0 +1,105 @@
+<%
+  # Rendered through the view hook, so the locals are the hook context.
+  issue = local_assigns[:issue]
+  visible = issue.present? && issue.persisted?
+  show_approval = visible && issue.approval_route? &&
+                  User.current.allowed_to?(:view_approval_workflow, issue.project)
+  show_extension = visible && (issue.issue_extensions.any? || issue.extendable_by?(User.current))
+%>
+<% if show_approval %>
+  <div class="approval-workflow box">
+    <h3><%= l(:label_approval_route) %>: <%= h issue.approval_route.name %></h3>
+
+    <% if issue.approval_out_of_sync? %>
+      <p class="warning"><%= l(:warning_approval_out_of_sync) %></p>
+    <% end %>
+
+    <ol class="approval-steps">
+      <% issue.approval_route.steps.each do |step| %>
+        <% state = approval_step_state(issue, step) %>
+        <% signature = last_signature_for(issue, step) %>
+        <li class="<%= approval_step_css(state) %>">
+          <%= approval_step_icon(state) %>
+          <span class="approval-step-name"><%= h step.name %></span>
+          <span class="approval-step-status">&rarr; <%= h step.issue_status.name %></span>
+          <% if signature %>
+            <span class="approval-step-signature">
+              <%= link_to_user signature.user %>,
+              <%= format_time signature.created_at %>
+              <% if signature.rejected? %>
+                <span class="approval-rejected"><%= l(:label_approval_rejected) %></span>
+              <% end %>
+              <% if signature.comments.present? %>
+                <div class="approval-step-comment"><%= textilizable signature.comments %></div>
+              <% end %>
+            </span>
+          <% end %>
+        </li>
+      <% end %>
+    </ol>
+
+    <p class="buttons">
+      <% if issue.can_approve?(User.current) %>
+        <%= link_to sprite_icon('checked', l(:button_approve)),
+                    new_issue_approval_path(issue, :decision => 'approve'),
+                    :class => 'icon icon-checked button-positive' %>
+      <% end %>
+      <% if issue.can_reject_approval?(User.current) %>
+        <%= link_to sprite_icon('cancel', l(:button_reject_approval)),
+                    new_issue_approval_path(issue, :decision => 'reject'),
+                    :class => 'icon icon-cancel' %>
+      <% end %>
+      <% if issue.approval_completed? %>
+        <span class="approval-completed"><%= l(:label_approval_completed) %></span>
+      <% end %>
+    </p>
+  </div>
+<% end %>
+
+<% if show_extension %>
+  <div class="issue-extensions box">
+    <h3><%= l(:label_issue_extension_plural) %></h3>
+
+    <p>
+      <strong><%= l(:field_due_date) %>:</strong>
+      <%= issue.due_date ? format_date(issue.due_date) : l(:label_none) %>
+      <span class="approval-hint">(<%= approval_max_extension_label %>)</span>
+    </p>
+
+    <% if issue.issue_extensions.any? %>
+      <table class="list issue-extension-list">
+        <thead>
+          <tr>
+            <th><%= l(:label_date) %></th>
+            <th><%= l(:label_user) %></th>
+            <th><%= l(:label_extension_from_to) %></th>
+            <th><%= l(:label_extension_days) %></th>
+            <th><%= l(:field_comments) %></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% issue.issue_extensions.each do |extension| %>
+            <tr>
+              <td><%= format_time extension.created_at %></td>
+              <td><%= link_to_user extension.user %></td>
+              <td>
+                <%= extension.previous_due_date ? format_date(extension.previous_due_date) : l(:label_none) %>
+                &rarr; <%= format_date extension.new_due_date %>
+              </td>
+              <td><%= extension.days %></td>
+              <td><%= h extension.reason %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+
+    <% if issue.extendable_by?(User.current) %>
+      <p class="buttons">
+        <%= link_to sprite_icon('time-add', l(:button_extend_due_date)),
+                    new_issue_issue_extension_path(issue),
+                    :class => 'icon icon-time-add' %>
+      </p>
+    <% end %>
+  </div>
+<% end %>

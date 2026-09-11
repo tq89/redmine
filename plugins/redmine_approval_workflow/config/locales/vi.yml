@@ -1,0 +1,78 @@
+vi:
+  # Lưu trình ký
+  label_approval_route: "Lưu trình ký"
+  label_approval_route_plural: "Lưu trình ký"
+  label_approval_route_new: "Lưu trình ký mới"
+  label_approval_step: "Bước ký"
+  label_approval_step_plural: "Các bước ký"
+  label_approval_step_done: "Đã ký"
+  label_approval_step_current: "Đang chờ ký"
+  label_approval_step_pending: "Chưa tới lượt"
+  label_approval_completed: "Đã hoàn tất lưu trình ký"
+  label_approval_rejected: "Đã từ chối"
+  label_approval_history: "Lịch sử ký duyệt"
+  label_approve_step: "Ký duyệt"
+  label_reject_step: "Từ chối ký"
+  label_rejected_status: "Trạng thái khi bị từ chối"
+  label_target_status: "Trạng thái sau khi ký"
+  label_status_change: "Chuyển trạng thái"
+  label_order: "Thứ tự"
+  label_all_projects: "Tất cả dự án"
+
+  button_approve: "Ký duyệt"
+  button_reject_approval: "Từ chối"
+
+  notice_approval_signed: "Đã ký duyệt thành công."
+  notice_approval_rejected: "Đã từ chối và trả lại bước trước."
+
+  error_approval_already_completed: "Lưu trình ký đã hoàn tất, không còn bước nào để ký."
+  error_approval_no_target_status: "Không xác định được trạng thái đích. Hãy kiểm tra cấu hình lưu trình."
+
+  warning_approval_out_of_sync: "Trạng thái hiện tại của công việc không khớp với bước ký gần nhất. Có thể ai đó đã đổi trạng thái thủ công ngoài lưu trình."
+
+  text_approval_journal_signed: "Ký duyệt bước: %{step}"
+  text_approval_journal_rejected: "Từ chối bước: %{step}"
+  text_approval_route_project_hint: "Để trống để áp dụng cho mọi dự án. Lưu trình gắn với một dự án sẽ được ưu tiên hơn lưu trình chung của cùng tracker."
+  text_rejected_status_hint: "Trạng thái công việc quay về khi bị từ chối ngay ở bước đầu tiên."
+  text_approval_step_hint: "Các bước được thực hiện theo thứ tự tăng dần. Quyền ký mỗi bước chính là quyền chuyển sang trạng thái đích của bước đó, thiết lập trong Quản trị → Luồng công việc."
+
+  # Gia hạn
+  label_issue_extension: "Gia hạn"
+  label_issue_extension_plural: "Gia hạn công việc"
+  label_current_due_date: "Ngày hoàn thành hiện tại"
+  label_new_due_date: "Ngày hoàn thành mới"
+  label_extension_reason: "Lý do gia hạn"
+  label_extension_days: "Số ngày"
+  label_extension_from_to: "Từ → Đến"
+  label_extension_limit: "Giới hạn mỗi lần gia hạn"
+  label_max_extension_days: "tối đa %{count} ngày mỗi lần"
+  label_no_extension_limit: "không giới hạn"
+
+  button_extend_due_date: "Gia hạn"
+
+  notice_issue_extended: "Đã gia hạn tới ngày %{date}."
+
+  text_extension_journal: "Gia hạn %{days} ngày, tới ngày %{date}"
+  text_max_extension_days_hint: "Số ngày tối đa được cộng thêm trong một lần gia hạn. Nhập 0 để bỏ giới hạn."
+  text_max_extension_count_hint: "Số lần gia hạn tối đa cho mỗi công việc. Nhập 0 để bỏ giới hạn."
+
+  field_new_due_date: "Ngày hoàn thành mới"
+  field_reason: "Lý do"
+  field_active: "Kích hoạt"
+
+  setting_max_extension_days: "Số ngày tối đa mỗi lần gia hạn"
+  setting_max_extension_count: "Số lần gia hạn tối đa"
+  setting_require_extension_reason: "Bắt buộc nhập lý do gia hạn"
+
+  permission_view_approval_workflow: "Xem lưu trình ký"
+  permission_extend_issue_due_date: "Gia hạn công việc"
+  project_module_approval_workflow: "Lưu trình ký & Gia hạn"
+
+  activerecord:
+    errors:
+      models:
+        issue_extension:
+          attributes:
+            new_due_date:
+              must_be_after_base_date: "phải sau ngày hoàn thành hiện tại"
+              exceeds_max_extension_days: "vượt quá giới hạn %{count} ngày cho mỗi lần gia hạn"

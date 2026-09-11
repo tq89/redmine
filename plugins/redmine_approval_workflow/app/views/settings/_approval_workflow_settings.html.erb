@@ -1,0 +1,27 @@
+<div class="box tabular settings">
+  <p>
+    <label for="settings_max_extension_days"><%= l(:setting_max_extension_days) %></label>
+    <%= number_field_tag 'settings[max_extension_days]', settings['max_extension_days'],
+                         :min => 0, :size => 6, :id => 'settings_max_extension_days' %>
+    <em class="info"><%= l(:text_max_extension_days_hint) %></em>
+  </p>
+
+  <p>
+    <label for="settings_max_extension_count"><%= l(:setting_max_extension_count) %></label>
+    <%= number_field_tag 'settings[max_extension_count]', settings['max_extension_count'],
+                         :min => 0, :size => 6, :id => 'settings_max_extension_count' %>
+    <em class="info"><%= l(:text_max_extension_count_hint) %></em>
+  </p>
+
+  <p>
+    <label for="settings_require_extension_reason"><%= l(:setting_require_extension_reason) %></label>
+    <%= hidden_field_tag 'settings[require_extension_reason]', '0', :id => nil %>
+    <%= check_box_tag 'settings[require_extension_reason]', '1',
+                      settings['require_extension_reason'].to_s == '1',
+                      :id => 'settings_require_extension_reason' %>
+  </p>
+</div>
+
+<p class="info">
+  <%= link_to l(:label_approval_route_plural), approval_routes_path %>
+</p>

@@ -1,0 +1,35 @@
+<h2><%= l(:button_extend_due_date) %></h2>
+
+<%= labelled_form_for @extension, :url => issue_issue_extensions_path(@issue), :method => :post do |f| %>
+  <%= error_messages_for @extension %>
+
+  <div class="box tabular">
+    <p>
+      <strong><%= l(:label_issue) %>:</strong>
+      <%= link_to_issue @issue %>
+    </p>
+    <p>
+      <strong><%= l(:label_current_due_date) %>:</strong>
+      <%= @issue.due_date ? format_date(@issue.due_date) : l(:label_none) %>
+    </p>
+    <p>
+      <strong><%= l(:label_extension_limit) %>:</strong>
+      <%= approval_max_extension_label %>
+    </p>
+
+    <p>
+      <%= f.date_field :new_due_date, :required => true, :size => 10,
+                       :label => :label_new_due_date %>
+    </p>
+    <p>
+      <%= f.text_area :reason, :rows => 4, :class => 'wiki-edit',
+                      :required => IssueExtension.reason_required?,
+                      :label => :label_extension_reason %>
+    </p>
+  </div>
+
+  <p>
+    <%= submit_tag l(:button_extend_due_date) %>
+    <%= link_to l(:button_cancel), issue_path(@issue) %>
+  </p>
+<% end %>

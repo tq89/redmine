@@ -1,0 +1,30 @@
+<h2><%= @approving ? l(:label_approve_step) : l(:label_reject_step) %></h2>
+
+<%= form_tag(issue_approvals_path(@issue), :method => :post) do %>
+  <%= hidden_field_tag 'decision', @approving ? 'approve' : 'reject' %>
+
+  <div class="box">
+    <p>
+      <strong><%= l(:label_issue) %>:</strong>
+      <%= link_to_issue @issue %>
+    </p>
+    <p>
+      <strong><%= l(:label_approval_route) %>:</strong>
+      <%= h @route.name %>
+      <% if @step %>&ndash; <%= h @step.name %><% end %>
+    </p>
+    <p>
+      <strong><%= l(:label_status_change) %>:</strong>
+      <%= h @issue.status.name %> &rarr; <strong><%= h @target_status.name %></strong>
+    </p>
+    <p>
+      <label for="comments"><%= l(:field_comments) %></label>
+      <%= text_area_tag 'comments', params[:comments], :rows => 5, :class => 'wiki-edit' %>
+    </p>
+  </div>
+
+  <p>
+    <%= submit_tag(@approving ? l(:button_approve) : l(:button_reject_approval)) %>
+    <%= link_to l(:button_cancel), issue_path(@issue) %>
+  </p>
+<% end %>

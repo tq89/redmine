@@ -1,0 +1,35 @@
+<h2><%= l(:label_approval_history) %></h2>
+
+<p><%= link_to_issue @issue %></p>
+
+<% if @signatures.any? %>
+  <table class="list">
+    <thead>
+      <tr>
+        <th><%= l(:label_date) %></th>
+        <th><%= l(:label_approval_step) %></th>
+        <th><%= l(:label_user) %></th>
+        <th><%= l(:field_status) %></th>
+        <th><%= l(:field_comments) %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @signatures.each do |signature| %>
+        <tr>
+          <td><%= format_time signature.created_at %></td>
+          <td><%= h signature.step_name %></td>
+          <td><%= link_to_user signature.user %></td>
+          <td>
+            <%= h signature.from_status&.name %> &rarr; <%= h signature.to_status&.name %>
+            <% if signature.rejected? %>
+              <span class="approval-rejected">(<%= l(:label_approval_rejected) %>)</span>
+            <% end %>
+          </td>
+          <td><%= h signature.comments %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p class="nodata"><%= l(:label_no_data) %></p>
+<% end %>

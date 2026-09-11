@@ -1,0 +1,65 @@
+<%= error_messages_for @route %>
+
+<div class="box tabular">
+  <p><%= f.text_field :name, :required => true, :size => 60 %></p>
+  <p>
+    <%= f.select :tracker_id, Tracker.sorted.map {|t| [t.name, t.id]},
+                 :required => true, :label => :label_tracker %>
+  </p>
+  <p>
+    <%= f.select :project_id,
+                 [[l(:label_all_projects), '']] + Project.active.sorted.map {|p| [p.name, p.id]},
+                 {:label => :label_project},
+                 {} %>
+    <em class="info"><%= l(:text_approval_route_project_hint) %></em>
+  </p>
+  <p>
+    <%= f.select :rejected_status_id,
+                 [[l(:label_none), '']] + IssueStatus.sorted.map {|s| [s.name, s.id]},
+                 {:label => :label_rejected_status},
+                 {} %>
+    <em class="info"><%= l(:text_rejected_status_hint) %></em>
+  </p>
+  <p><%= f.text_area :description, :rows => 3, :cols => 60 %></p>
+  <p><%= f.check_box :active %></p>
+</div>
+
+<fieldset class="box">
+  <legend><%= l(:label_approval_step_plural) %></legend>
+  <em class="info"><%= l(:text_approval_step_hint) %></em>
+
+  <table class="list approval-step-form">
+    <thead>
+      <tr>
+        <th><%= l(:label_order) %></th>
+        <th><%= l(:field_name) %></th>
+        <th><%= l(:label_target_status) %></th>
+        <th><%= l(:button_delete) %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <%= f.fields_for :steps do |sf| %>
+        <tr>
+          <td><%= sf.number_field :position, :size => 3, :min => 0 %></td>
+          <td><%= sf.text_field :name, :size => 40 %></td>
+          <td>
+            <%= sf.select :issue_status_id,
+                          [[l(:label_none), '']] + IssueStatus.sorted.map {|s| [s.name, s.id]} %>
+          </td>
+          <td><%= sf.check_box :_destroy unless sf.object.new_record? %></td>
+        </tr>
+      <% end %>
+      <% (@route.steps.size...(@route.steps.size + 3)).each do |index| %>
+        <tr>
+          <td><%= number_field_tag "approval_route[steps_attributes][#{index}][position]", index, :size => 3, :min => 0 %></td>
+          <td><%= text_field_tag "approval_route[steps_attributes][#{index}][name]", nil, :size => 40 %></td>
+          <td>
+            <%= select_tag "approval_route[steps_attributes][#{index}][issue_status_id]",
+                           options_for_select([[l(:label_none), '']] + IssueStatus.sorted.map {|s| [s.name, s.id]}) %>
+          </td>
+          <td></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</fieldset>

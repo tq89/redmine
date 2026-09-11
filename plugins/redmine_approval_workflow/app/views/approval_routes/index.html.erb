@@ -1,0 +1,39 @@
+<div class="contextual">
+  <%= link_to sprite_icon('add', l(:label_approval_route_new)), new_approval_route_path, :class => 'icon icon-add' %>
+</div>
+
+<h2><%= l(:label_approval_route_plural) %></h2>
+
+<% if @routes.any? %>
+  <table class="list">
+    <thead>
+      <tr>
+        <th><%= l(:field_name) %></th>
+        <th><%= l(:label_tracker) %></th>
+        <th><%= l(:label_project) %></th>
+        <th><%= l(:label_approval_step_plural) %></th>
+        <th><%= l(:field_active) %></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @routes.each do |route| %>
+        <tr>
+          <td><%= link_to h(route.name), edit_approval_route_path(route) %></td>
+          <td><%= h route.tracker&.name %></td>
+          <td><%= route.project ? h(route.project.name) : l(:label_all_projects) %></td>
+          <td><%= route.steps.map {|s| "#{s.name} (#{s.issue_status&.name})"}.join(' → ') %></td>
+          <td><%= checked_image route.active %></td>
+          <td class="buttons">
+            <%= link_to l(:button_edit), edit_approval_route_path(route), :class => 'icon icon-edit' %>
+            <%= link_to l(:button_delete), approval_route_path(route),
+                        :data => {:confirm => l(:text_are_you_sure)},
+                        :method => :delete, :class => 'icon icon-del' %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p class="nodata"><%= l(:label_no_data) %></p>
+<% end %>
