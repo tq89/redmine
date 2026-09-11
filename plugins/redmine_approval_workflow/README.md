@@ -208,6 +208,56 @@ và nhận email. Ba nơi dùng chung một quy tắc.
 | Bắt buộc nhập lý do gia hạn | có | |
 | Hiện nút nhắc ký trên thanh menu | có | tắt để giảm tải máy chủ |
 | Gửi email khi tới lượt ký | **không** | xem mục riêng bên dưới |
+| Tự động khớp lưu trình theo trạng thái | có | xem mục riêng bên dưới |
+
+## Tự khớp với trạng thái thật, điền từ lịch sử
+
+Công việc đi vào một trạng thái bằng nhiều đường: tạo trước khi lưu trình tồn
+tại, sửa bằng form thường, API, sửa hàng loạt, nhập dữ liệu. Nếu bỏ mặc, lưu
+trình sẽ hiện "chưa ký bước nào" trong khi công việc đã nằm ở trạng thái của
+bước 3.
+
+Plugin đọc **lịch sử thật** của công việc — trạng thái lúc tạo, rồi từng journal
+đổi `status_id` — đối chiếu theo thứ tự với các bước, và điền vào bước nào đã đi
+qua, kèm **ai đã chuyển và lúc nào**, lấy đúng từ journal đó.
+
+### Những bản ghi này KHÔNG phải chữ ký
+
+Chúng mang cờ `derived` và hiện rõ nhãn **"suy ra từ lịch sử"** trong panel lẫn
+trang lịch sử ký, kèm liên kết tới đúng thay đổi trong lịch sử công việc. Lưu
+trình ký là hồ sơ kiểm toán — một lần đổi trạng thái qua form thường **không**
+phải một lần ký, và giao diện không được để lẫn hai thứ đó.
+
+### Ba đường kích hoạt
+
+| Đường | Khi nào |
+|---|---|
+| **Tự động** | mỗi lần `status_id` đổi ngoài lưu trình (`after_save`) |
+| **Nút "Đồng bộ từ lịch sử"** | trên panel, cần quyền *Đồng bộ lưu trình từ lịch sử* |
+| **Rake task** | dữ liệu cũ hàng loạt, khi mới cài plugin |
+
+```bash
+# Xem trước, không ghi gì
+bundle exec rake redmine:approval_workflow:backfill DRY_RUN=1 RAILS_ENV=production
+
+# Chạy thật, có thể giới hạn một dự án
+bundle exec rake redmine:approval_workflow:backfill PROJECT=an-toan-chay RAILS_ENV=production
+```
+
+Quy tắc an toàn:
+
+- **Không bao giờ ghi đè chữ ký thật.** Bước đã có bản ghi thì bỏ qua.
+- **Chỉ điền tiến về phía trước**, từ vị trí hiện tại của lưu trình.
+- **Chạy lại bao nhiêu lần cũng được** — lần hai không thêm gì. Journal nào đã
+  được một chữ ký trỏ tới thì bị loại theo `journal_id` chứ không theo thời
+  gian, vì controller ghi journal và chữ ký trong cùng một transaction nên hai
+  mốc thời gian có thể bằng nhau.
+- **Đường vòng không tính.** Công việc đi 1 → 4 → 2 với lưu trình `[2, 3]` chỉ
+  khớp bước 1; trạng thái 4 nằm ngoài lưu trình nên bị bỏ qua.
+- Đổi trạng thái **bằng chính nút ký** không bị đếm hai lần — controller đánh
+  dấu lần lưu đó.
+
+Tắt phần tự động tại **Quản trị → Plugins → Cấu hình** nếu muốn chỉ chạy thủ công.
 
 ## Cách hoạt động
 
@@ -229,6 +279,7 @@ trong tab thông thường của Redmine.
 | Xem lưu trình ký | Hiện panel lưu trình trên trang công việc |
 | Gia hạn công việc | Cho phép bấm nút Gia hạn (còn phải qua quyền trên trường `due_date`) |
 | Quản lý lưu trình ký | Hiện thẻ "Lưu trình ký" trong Cài đặt dự án |
+| Đồng bộ lưu trình từ lịch sử | Hiện nút "Đồng bộ từ lịch sử" trên panel |
 
 ## Kiểm thử
 
@@ -236,4 +287,4 @@ trong tab thông thường của Redmine.
 bundle exec rails test plugins/redmine_approval_workflow/test RAILS_ENV=test
 ```
 
-112 test, 410 assertion.
+127 test, 464 assertion.

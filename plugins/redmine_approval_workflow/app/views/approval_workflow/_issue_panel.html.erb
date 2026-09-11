@@ -28,9 +28,16 @@
             <span class="approval-assignee"><%= l(:label_assigned_role) %>: <%= h step.approver_role.name %></span>
           <% end %>
           <% if signature %>
-            <span class="approval-step-signature">
+            <span class="approval-step-signature <%= 'approval-derived' if signature.derived? %>">
               <%= link_to_user signature.user %>,
               <%= format_time signature.created_at %>
+              <% if signature.derived? %>
+                <span class="approval-derived-badge"
+                      title="<%= l(:text_derived_signature_hint) %>"><%= l(:label_derived_from_history) %></span>
+                <% if signature.journal_id %>
+                  <%= link_to l(:label_view_history), issue_path(issue, :anchor => "change-#{signature.journal_id}") %>
+                <% end %>
+              <% end %>
               <% if signature.rejected? %>
                 <span class="approval-rejected"><%= l(:label_approval_rejected) %></span>
               <% end %>
@@ -56,6 +63,11 @@
       <% end %>
       <% if issue.approval_completed? %>
         <span class="approval-completed"><%= l(:label_approval_completed) %></span>
+      <% end %>
+      <% if User.current.allowed_to?(:sync_approval_history, issue.project) && !issue.approval_completed? %>
+        <%= link_to l(:button_sync_from_history), sync_issue_approvals_path(issue),
+                    :method => :post, :class => 'icon icon-reload',
+                    :title => l(:text_sync_button_hint) %>
       <% end %>
     </p>
   </div>

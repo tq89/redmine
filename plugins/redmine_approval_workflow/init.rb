@@ -17,7 +17,8 @@ Redmine::Plugin.register :redmine_approval_workflow do
       'max_extension_count' => '0',
       'require_extension_reason' => '1',
       'show_pending_approvals' => '1',
-      'notify_on_pending_approval' => '0'
+      'notify_on_pending_approval' => '0',
+      'sync_status_from_history' => '1'
     },
     :partial => 'settings/approval_workflow_settings'
   )
@@ -30,6 +31,9 @@ Redmine::Plugin.register :redmine_approval_workflow do
     permission :view_approval_workflow,
                {:approvals => [:index]},
                :read => true
+    permission :sync_approval_history,
+               {:approvals => [:sync]},
+               :require => :member
     permission :extend_issue_due_date,
                {:issue_extensions => [:new, :create]}
     # Approval chains live in the project's own settings, so configuring them

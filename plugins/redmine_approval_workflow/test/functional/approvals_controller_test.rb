@@ -177,6 +177,63 @@ class ApprovalsControllerTest < Redmine::ControllerTest
     assert approval_mail_recipients.any?, 'handing an issue back starts somebody new turn'
   end
 
+  # The chain must follow a status changed by any other means, and must not
+  # count a real signature twice.
+  def test_status_changed_outside_the_chain_advances_it
+    set_plugin_settings('sync_status_from_history' => '1')
+    # Core fixtures already move issue 1 from status 1 to 2 in a journal by user
+    # 1. Clearing it leaves this test about the edit it actually makes.
+    @issue.journals.delete_all
+    issue = Issue.find(@issue.id)
+    issue.init_journal(User.find(2))
+    issue.status_id = 2
+    issue.save!
+
+    assert_equal 1, issue.reload.approval_position
+    signature = ApprovalSignature.where(:issue_id => issue.id).last
+    assert signature.derived?, 'an ordinary edit is not a signature'
+    assert_equal 2, signature.user_id
+  end
+
+  def test_signing_is_not_also_recorded_as_derived
+    set_plugin_settings('sync_status_from_history' => '1')
+    @request.session[:user_id] = 2
+
+    assert_difference 'ApprovalSignature.count', 1 do
+      post :create, :params => {:issue_id => @issue.id, :decision => 'approve'}
+    end
+
+    assert_equal 1, @issue.reload.approval_position
+    assert ApprovalSignature.last.signed?, 'a real signature must stay a real signature'
+  end
+
+  def test_sync_action_fills_the_chain_on_demand
+    Role.find(1).add_permission!(:sync_approval_history)
+    set_plugin_settings('sync_status_from_history' => '0') # automatic sync off
+    issue = Issue.find(@issue.id)
+    issue.init_journal(User.find(2))
+    issue.status_id = 2
+    issue.save!
+    assert_equal 0, issue.reload.approval_position, 'automatic sync is off'
+
+    @request.session[:user_id] = 2
+    assert_difference 'ApprovalSignature.count', 1 do
+      post :sync, :params => {:issue_id => @issue.id}
+    end
+
+    assert_redirected_to "/issues/#{@issue.id}"
+    assert_equal 1, @issue.reload.approval_position
+  end
+
+  def test_sync_action_is_denied_without_the_permission
+    Role.find(1).remove_permission!(:sync_approval_history)
+    @request.session[:user_id] = 2
+
+    post :sync, :params => {:issue_id => @issue.id}
+
+    assert_response :forbidden
+  end
+
   def test_returns_404_when_no_route_is_configured
     ApprovalRoute.delete_all
     @request.session[:user_id] = 2

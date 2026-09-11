@@ -38,6 +38,15 @@
                       :id => 'settings_notify_on_pending_approval' %>
     <em class="info"><%= l(:text_notify_on_pending_approval_hint) %></em>
   </p>
+
+  <p>
+    <label for="settings_sync_status_from_history"><%= l(:setting_sync_status_from_history) %></label>
+    <%= hidden_field_tag 'settings[sync_status_from_history]', '0', :id => nil %>
+    <%= check_box_tag 'settings[sync_status_from_history]', '1',
+                      settings['sync_status_from_history'].to_s != '0',
+                      :id => 'settings_sync_status_from_history' %>
+    <em class="info"><%= l(:text_sync_status_from_history_hint) %></em>
+  </p>
 </div>
 
 <p class="info"><%= l(:text_routes_moved_to_project_settings) %></p>

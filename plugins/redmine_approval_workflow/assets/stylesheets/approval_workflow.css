@@ -68,3 +68,15 @@ table.approval-step-form input[type=text] { width: 100%; }
 .approval-assignee { color: #555; font-size: 0.85em; margin-left: 6px; }
 .approval-button-label { color: #777; font-size: 0.85em; }
 ol.approval-route-summary { margin: 0; padding-left: 18px; }
+
+.approval-derived-badge {
+  display: inline-block;
+  background: #ede7d3;
+  color: #7a5c00;
+  border: 1px solid #d9c89a;
+  border-radius: 3px;
+  padding: 0 5px;
+  font-size: 0.82em;
+  margin-left: 4px;
+}
+.approval-step-signature.approval-derived { font-style: italic; }

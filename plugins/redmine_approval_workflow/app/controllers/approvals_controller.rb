@@ -6,6 +6,7 @@ class ApprovalsController < ApplicationController
 
   before_action :find_approval_issue
   before_action :find_route
+  before_action :authorize_sync, :only => [:sync]
   before_action :build_decision, :only => [:new, :create]
 
   def index
@@ -14,6 +15,19 @@ class ApprovalsController < ApplicationController
 
   def new
     render :new
+  end
+
+  # Reconciles this one issue against its status history on demand, for when an
+  # administrator does not want to wait for the next status change.
+  def sync
+    created = RedmineApprovalWorkflow::HistorySync.backfill(@issue, :force => true)
+    flash[:notice] =
+      if created.any?
+        l(:notice_approval_history_synced, :count => created.size)
+      else
+        l(:notice_approval_history_already_in_sync)
+      end
+    redirect_to issue_path(@issue)
   end
 
   def create
@@ -41,6 +55,9 @@ class ApprovalsController < ApplicationController
     ApprovalSignature.transaction do
       journal = @issue.init_journal(User.current, journal_notes)
       @issue.status = @target_status
+      # This save is the signature itself; letting the history reconciler also
+      # see it would advance the chain twice for one decision.
+      @issue.skip_approval_sync = true
       @issue.save!
       @signature.journal_id = journal.id if journal.persisted?
       @signature.save!
@@ -71,6 +88,10 @@ class ApprovalsController < ApplicationController
   def find_route
     @route = @issue.approval_route
     render_404 unless @issue.approval_route?
+  end
+
+  def authorize_sync
+    deny_access unless User.current.allowed_to?(:sync_approval_history, @project)
   end
 
   def build_decision

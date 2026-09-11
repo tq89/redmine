@@ -12,6 +12,10 @@ resources :projects, :only => [] do
 end
 
 resources :issues, :only => [] do
-  resources :approvals, :only => [:index, :new, :create]
+  resources :approvals, :only => [:index, :new, :create] do
+    collection do
+      post :sync
+    end
+  end
   resources :issue_extensions, :only => [:new, :create], :path => 'extensions'
 end

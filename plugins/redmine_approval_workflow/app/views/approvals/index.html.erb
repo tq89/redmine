@@ -18,7 +18,12 @@
         <tr>
           <td><%= format_time signature.created_at %></td>
           <td><%= h signature.step_name %></td>
-          <td><%= link_to_user signature.user %></td>
+          <td>
+            <%= link_to_user signature.user %>
+            <% if signature.derived? %>
+              <span class="approval-derived-badge"><%= l(:label_derived_from_history) %></span>
+            <% end %>
+          </td>
           <td>
             <%= h signature.from_status&.name %> &rarr; <%= h signature.to_status&.name %>
             <% if signature.rejected? %>

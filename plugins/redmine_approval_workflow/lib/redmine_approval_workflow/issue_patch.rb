@@ -27,7 +27,26 @@ module RedmineApprovalWorkflow
         # A new issue on a routed tracker puts step 0 in front of somebody
         # straight away; later turns are announced by ApprovalsController.
         after_create :notify_first_approval_step
+        # Declared here, so it is appended after Redmine's own create_journal
+        # and the journal for this very change already exists when it runs.
+        after_save :sync_approval_chain_with_status
       end
+    end
+
+    # Set by ApprovalsController around its own save: a signature already
+    # records itself, and reconciling on top of it would count the move twice.
+    attr_accessor :skip_approval_sync
+
+    # Keeps the chain honest when the status moves by some other route: the
+    # ordinary issue form, the API, a bulk edit, an import.
+    def sync_approval_chain_with_status
+      return if skip_approval_sync
+      return unless saved_change_to_status_id?
+
+      RedmineApprovalWorkflow::HistorySync.backfill(self)
+    rescue StandardError => e
+      # Reconciliation is bookkeeping; it must never take the issue down with it.
+      Rails.logger.error("Approval chain sync failed for issue #{id}: #{e.message}")
     end
 
     def notify_first_approval_step

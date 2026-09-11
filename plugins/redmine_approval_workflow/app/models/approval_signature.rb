@@ -28,4 +28,13 @@ class ApprovalSignature < ApplicationRecord
   def rejected?
     action == REJECTED
   end
+
+  # Reconciled from the issue's status history rather than signed by hand.
+  def derived?
+    derived == true
+  end
+
+  def signed?
+    !derived?
+  end
 end
