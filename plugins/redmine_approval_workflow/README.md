@@ -73,8 +73,8 @@ ngay.
 
 Bước của lưu trình công việc lấy quyền ký từ *chuyển trạng thái*. Bước gia hạn
 **không có trạng thái đích** nên không có chuyển trạng thái nào để dựa vào — vì
-vậy mỗi bước gia hạn **bắt buộc** phải chỉ định một vai trò hoặc một người. Mô
-hình từ chối lưu bước thiếu người ký.
+vậy mỗi bước gia hạn **bắt buộc** phải chỉ định người ký: một vai trò, một
+người, hoặc *Người thực hiện*. Mô hình từ chối lưu bước thiếu người ký.
 
 Ngoài chỉ định đó, người ký vẫn phải sửa được công việc và **không** bị khoá
 trường `due_date` ở trạng thái hiện tại — đúng quy tắc quyền gia hạn nêu trên.
@@ -135,6 +135,26 @@ trong bộ nhớ.
 
 Quản trị viên có thể tắt chuông (Quản trị → Plugins → Cấu hình) nếu máy chủ yếu.
 
+## Thanh nổi khi cuộn trang công việc
+
+Redmine 7 có sẵn một thanh ngang cố định trên đầu trang công việc
+(`#sticky-issue-header`), hiện ra khi tiêu đề đã cuộn khuất — nhưng nửa bên
+phải của nó bỏ trống. Plugin dùng đúng chỗ trống đó: **bước đang chờ ký** kèm
+trạng thái đích, và các **nút thao tác** (ký theo nhãn của bước, từ chối, gia
+hạn, hoặc duyệt đơn gia hạn đang chờ chính bạn).
+
+Nhờ vậy, với công việc dài, không phải cuộn ngược lên panel mới bấm được nút.
+
+Cách làm giống hệt nút chuông: Redmine không có hook nào bên trong thanh đó,
+nên khối này được render **ẩn** ngay tại hook có sẵn của panel, rồi một đoạn
+script nội tuyến gắn nó vào `#sticky-issue-header`. Thanh nổi được parse trước
+hook nên lúc script chạy phần tử đã có; một bản Redmine sau này đổi tên hay bỏ
+phần tử đó thì khối đơn giản không hiện, chứ không rơi lạc ra giữa trang. Trên
+màn hình hẹp (< 900px) khối bị ẩn, nhường chỗ cho tiêu đề.
+
+`ApprovalPanelTest` kiểm chứng cả hai phía: `#sticky-issue-header` vẫn do core
+dựng, và khối của plugin có đúng bước cùng các nút.
+
 ## Gửi email khi tới lượt ký (tuỳ chọn)
 
 Bật tại **Quản trị → Plugins → Cấu hình → Gửi email khi tới lượt ký**.
@@ -186,7 +206,7 @@ mà bản mới thêm vào — app vẫn chạy, vẫn xanh healthcheck, chỉ l
 file core nào bị ghi đè thì rủi ro đó biến mất, và triển khai chỉ còn là copy
 một thư mục.
 
-Bốn thứ từng phải sửa core, nay nằm trong plugin:
+Năm thứ từng phải sửa core, nay nằm trong plugin:
 
 | Việc | Chỗ ở mới |
 |---|---|
@@ -194,6 +214,7 @@ Bốn thứ từng phải sửa core, nay nằm trong plugin:
 | Action + view `/sw.js` | `ServiceWorkerController` + `app/views/service_worker/show.js.erb` của plugin |
 | Menu Help → "Liên hệ" | `Redmine::MenuManager::Mapper#delete(:help)` rồi push lại, trong `init.rb` |
 | Chuông + dòng chân trang | hook `view_layouts_base_body_bottom` + script dời chỗ |
+| Khối thao tác trên thanh nổi | hook của panel + script gắn vào `#sticky-issue-header` |
 
 ## Kill-switch `/sw.js`
 
@@ -237,8 +258,25 @@ Mỗi **bước** khai báo:
 |---|---|
 | Tên bước | ví dụ "Trưởng bộ phận duyệt" |
 | Trạng thái sau khi ký | trạng thái công việc chuyển sang — **chỉ có ở lưu trình công việc** |
-| **Người ký** | một **vai trò** HOẶC một **người** cụ thể — không chọn cả hai; **bắt buộc** với bước gia hạn |
+| **Người ký** | một ô chọn duy nhất: **Người thực hiện**, một **vai trò**, hoặc một **người** cụ thể; **bắt buộc** với bước gia hạn |
 | **Nhãn nút** | chữ trên nút thao tác, ví dụ "Trình ký", "Phê duyệt"; để trống = "Ký duyệt" |
+
+Bảng bước có nút **"Thêm bước"** để thêm dòng, nên lưu trình dài bao nhiêu bước
+cũng khai báo được. Dòng mới tự nhận số thứ tự kế tiếp; khi lưu, thứ tự được
+đánh lại 0..n-1 theo đúng thứ tự trên form.
+
+### "Người thực hiện" — người ký lấy theo công việc
+
+Chọn **Người thực hiện** thì bước đó thuộc về người đang được giao công việc
+*tại thời điểm ký*, không phải một cái tên cố định trong cấu hình. Một lưu trình
+duy nhất vì thế dùng được cho mọi công việc của tracker: bước "Nhận việc" luôn
+rơi đúng vào người được giao.
+
+- Công việc giao cho một **nhóm** thì mọi thành viên của nhóm đều ký được, đúng
+  như cách Redmine hiểu trường *Được giao cho* ở mọi nơi khác.
+- Công việc **chưa giao cho ai** thì không ai ký được bước đó — không có người
+  thực hiện để đối chiếu.
+- Đổi người được giao là đổi luôn người ký, ngay lập tức.
 
 ### Chỉ định người ký chỉ **thu hẹp**, không bao giờ mở rộng
 
@@ -247,11 +285,14 @@ lọc thêm bên trong đó:
 
 ```
 được ký  =  luồng công việc cho phép chuyển trạng thái
-            VÀ (bước không chỉ định  HOẶC  đúng vai trò/người được chỉ định)
+            VÀ (bước không chỉ định
+                HOẶC đúng vai trò / đúng người / đúng người thực hiện)
 ```
 
 Chỉ định một người **không** cấp cho họ quyền chuyển trạng thái mà luồng công
-việc từ chối — có test riêng cho điều này.
+việc từ chối — kể cả *Người thực hiện*: người được giao việc mà luồng công việc
+không cho chuyển trạng thái thì vẫn không ký được. Có test riêng cho cả hai
+chiều.
 
 Khi bước đã chỉ định, **chỉ người đó** thấy nút ký, thấy công việc trên chuông,
 và nhận email. Ba nơi dùng chung một quy tắc.
@@ -351,4 +392,4 @@ chỗ: trong journal và trong chính bản ghi chữ ký (hiện trên panel l�
 bundle exec rails test plugins/redmine_approval_workflow/test RAILS_ENV=test
 ```
 
-197 test, 744 assertion.
+220 test, 856 assertion.

@@ -74,9 +74,12 @@ class ApprovalRoutesController < ApplicationController
   def route_params
     params.require(:approval_route).permit(
       :name, :kind, :tracker_id, :rejected_status_id, :description, :active,
+      # approver_token is what the form posts; the three columns stay permitted
+      # for anything driving this directly. A caller sending both gets whichever
+      # Rails assigns last, so send one or the other.
       :steps_attributes => [:id, :name, :issue_status_id, :position,
-                            :approver_role_id, :approver_user_id, :button_label,
-                            :_destroy]
+                            :approver_token, :approver_role_id, :approver_user_id,
+                            :approver_dynamic, :button_label, :_destroy]
     )
   end
 end

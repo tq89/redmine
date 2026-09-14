@@ -97,6 +97,7 @@ class ApprovalMailer < Mailer
 
     def candidates(issue, step)
       return Array(User.active.find_by_id(step.approver_user_id)) if step.approver_user_id.present?
+      return assignee_candidates(issue) if step.approver_dynamic.present?
 
       role_ids =
         if step.approver_role_id.present?
@@ -116,6 +117,16 @@ class ApprovalMailer < Mailer
         where(:member_roles => {:role_id => role_ids}).
         distinct.
         to_a
+    end
+
+    # A step assigned to "whoever the issue is assigned to". A group in that
+    # field stands for its members, as it does everywhere else in Redmine.
+    def assignee_candidates(issue)
+      assignee = issue.assigned_to
+      return [] if assignee.nil?
+      return assignee.users.active.to_a if assignee.is_a?(Group)
+
+      assignee.active? ? [assignee] : []
     end
 
     # Being asked to sign is a direct request rather than a subscription, so
@@ -138,6 +149,8 @@ class ApprovalMailer < Mailer
       candidates =
         if step.approver_user_id.present?
           Array(User.active.find_by_id(step.approver_user_id))
+        elsif step.approver_dynamic.present?
+          assignee_candidates(issue)
         elsif step.approver_role_id.present?
           User.active.
             joins(:members => :member_roles).

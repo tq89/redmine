@@ -64,6 +64,31 @@ module ApprovalWorkflowHelper
     Role.givable.sorted.map {|role| [role.name, role.id]}
   end
 
+  # One picker for all three kinds of approver, so "a role OR a person, not
+  # both" is a shape the form cannot express wrongly rather than a rule to
+  # enforce afterwards.
+  def approval_approver_options(project)
+    [
+      [l(:label_approver_dynamic), ApprovalRouteStep::DYNAMIC_APPROVERS.map do |kind|
+        [l(:"label_approver_#{kind}"), "dynamic:#{kind}"]
+      end],
+      [l(:label_role_plural), approval_role_options.map {|name, id| [name, "role:#{id}"]}],
+      [l(:label_user_plural), approval_member_options(project).map {|name, id| [name, "user:#{id}"]}]
+    ]
+  end
+
+  # How a step's approver reads wherever a chain is shown. nil when the step
+  # leaves it to the workflow.
+  def approval_step_approver_label(step)
+    if step.approver_user
+      "#{l(:label_assigned_person)}: #{step.approver_user.name}"
+    elsif step.approver_role
+      "#{l(:label_assigned_role)}: #{step.approver_role.name}"
+    elsif step.approver_dynamic.present?
+      l(:"label_approver_#{step.approver_dynamic}")
+    end
+  end
+
   def approval_member_options(project)
     project.members.includes(:principal).map(&:principal).
       select {|principal| principal.is_a?(User)}.

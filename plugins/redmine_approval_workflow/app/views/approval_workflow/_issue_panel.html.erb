@@ -22,10 +22,8 @@
           <%= approval_step_icon(state) %>
           <span class="approval-step-name"><%= h step.name %></span>
           <span class="approval-step-status">&rarr; <%= h step.issue_status.name %></span>
-          <% if step.approver_user %>
-            <span class="approval-assignee"><%= l(:label_assigned_person) %>: <%= h step.approver_user.name %></span>
-          <% elsif step.approver_role %>
-            <span class="approval-assignee"><%= l(:label_assigned_role) %>: <%= h step.approver_role.name %></span>
+          <% if (approver = approval_step_approver_label(step)) %>
+            <span class="approval-assignee"><%= h approver %></span>
           <% end %>
           <% if signature %>
             <span class="approval-step-signature <%= 'approval-derived' if signature.derived? %>">
@@ -159,4 +157,29 @@
       </p>
     <% end %>
   </div>
+<% end %>
+
+<% if show_approval || show_extension %>
+  <%# Scrolled past the panel, the step and its buttons follow the reader in
+      Redmine's own floating header. Rendered here, hidden, then moved -- core
+      offers no hook inside #sticky-issue-header, and patching the layout is
+      exactly what this plugin exists without. %>
+  <div id="approval-sticky-staging" hidden>
+    <%= render :partial => 'approval_workflow/sticky_actions', :locals => {:issue => issue} %>
+  </div>
+  <script>
+    (function () {
+      var staging = document.getElementById('approval-sticky-staging');
+      if (!staging) { return; }
+
+      var header = document.getElementById('sticky-issue-header');
+      var block = staging.querySelector('.approval-sticky');
+      // The header is parsed before this hook runs, so it is already there; a
+      // Redmine that drops or renames it simply leaves the block unshown.
+      if (header && block && !header.querySelector('.approval-sticky')) {
+        header.appendChild(block);
+      }
+      staging.remove();
+    })();
+  </script>
 <% end %>

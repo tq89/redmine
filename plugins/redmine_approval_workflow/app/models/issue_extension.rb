@@ -106,7 +106,7 @@ class IssueExtension < ApplicationRecord
     return false unless issue.attributes_editable?(user)
     return false if issue.read_only_attribute_names(user).include?('due_date')
 
-    step.assigned_to?(user, issue.project)
+    step.assigned_to?(user, issue)
   end
 
   private

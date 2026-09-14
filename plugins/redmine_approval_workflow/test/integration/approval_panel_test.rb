@@ -179,6 +179,152 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     assert_select '#errorExplanation'
   end
 
+  # --- adding steps to a chain ----------------------------------------------
+
+  def test_the_route_form_offers_an_add_step_button_and_a_row_template
+    Role.find(1).add_permission!(:manage_approval_routes)
+    identifier = @issue.project.identifier
+    log_user('jsmith', 'jsmith')
+
+    get "/projects/#{identifier}/approval_routes/new"
+
+    assert_response :success
+    assert_select 'a#approval-add-step'
+    assert_select 'tbody#approval-step-rows'
+    assert_select 'template#approval-step-template'
+    # The clone's field names come from this placeholder, so it has to be there.
+    assert_include 'approval_route[steps_attributes][__INDEX__][name]', @response.body
+    assert_include "tpl.innerHTML.split('__INDEX__')", @response.body
+  end
+
+  def test_a_step_added_at_a_generated_index_is_saved
+    Role.find(1).add_permission!(:manage_approval_routes)
+    identifier = @issue.project.identifier
+    log_user('jsmith', 'jsmith')
+
+    # What the button generates: an index nowhere near the rendered rows. Rails
+    # only treats the nested hash as a collection when every key is numeric,
+    # so this is the assertion that the generated names actually work.
+    assert_difference 'ApprovalRoute.count', 1 do
+      post "/projects/#{identifier}/approval_routes", :params => {
+        :approval_route => {
+          :name => 'Lưu trình bốn bước', :tracker_id => 1, :active => '1',
+          :steps_attributes => {
+            '0' => {:name => 'Giao việc', :issue_status_id => 2, :position => 0},
+            '1' => {:name => 'Nhận việc', :issue_status_id => 3, :position => 1},
+            '17570000' => {:name => 'Trình ký', :issue_status_id => 4, :position => 2},
+            '17570001' => {:name => 'Duyệt', :issue_status_id => 5, :position => 3}
+          }
+        }
+      }
+    end
+
+    route = ApprovalRoute.order(:id).last
+    assert_equal %w[Giao\ việc Nhận\ việc Trình\ ký Duyệt], route.steps.map(&:name)
+    # Positions are renumbered in form order, so the chain runs 0..3.
+    assert_equal [0, 1, 2, 3], route.steps.map(&:position)
+  end
+
+  def test_the_approver_picker_offers_the_assignee
+    Role.find(1).add_permission!(:manage_approval_routes)
+    identifier = @issue.project.identifier
+    log_user('jsmith', 'jsmith')
+
+    get "/projects/#{identifier}/approval_routes/new"
+
+    assert_response :success
+    assert_select 'select[name=?]', 'approval_route[steps_attributes][0][approver_token]' do
+      assert_select 'option[value=?]', 'dynamic:assignee'
+      assert_select 'option[value=?]', 'role:1'
+      assert_select 'option[value=?]', 'user:2'
+    end
+  end
+
+  def test_choosing_the_assignee_in_the_form_saves_it
+    Role.find(1).add_permission!(:manage_approval_routes)
+    identifier = @issue.project.identifier
+    log_user('jsmith', 'jsmith')
+
+    post "/projects/#{identifier}/approval_routes", :params => {
+      :approval_route => {
+        :name => 'Lưu trình giao việc', :tracker_id => 1, :active => '1',
+        :steps_attributes => {
+          '0' => {:name => 'Nhận việc', :issue_status_id => 2, :position => 0,
+                  :approver_token => 'dynamic:assignee'},
+          '1' => {:name => 'Duyệt', :issue_status_id => 3, :position => 1,
+                  :approver_token => 'role:1'}
+        }
+      }
+    }
+
+    route = ApprovalRoute.order(:id).last
+    assert_equal ApprovalRouteStep::ASSIGNEE, route.step_at(0).approver_dynamic
+    assert_nil route.step_at(0).approver_role_id
+    assert_equal 1, route.step_at(1).approver_role_id
+    assert_nil route.step_at(1).approver_dynamic
+  end
+
+  # --- the floating header --------------------------------------------------
+
+  # Core renders #sticky-issue-header and shows it once the subject scrolls out
+  # of view; the plugin appends the step and its buttons to it. If a later
+  # Redmine drops or renames that element, this is what says so.
+  def test_core_still_provides_the_sticky_issue_header
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select 'div#sticky-issue-header'
+  end
+
+  def test_sticky_header_gets_the_step_and_its_sign_button
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select 'div#approval-sticky-staging[hidden] .approval-sticky' do
+      assert_select '.approval-sticky-step', :text => /#{@issue.approval_route.step_at(0).name}/
+      assert_select 'form[action=?]', "/issues/#{@issue.id}/approvals?decision=approve"
+    end
+    assert_include "document.getElementById('sticky-issue-header')", @response.body
+  end
+
+  def test_sticky_header_offers_the_extend_button
+    Role.find(1).add_permission!(:extend_issue_due_date)
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select ".approval-sticky a[href=?]", "/issues/#{@issue.id}/extensions/new"
+  end
+
+  def test_sticky_header_offers_a_pending_extension_instead_of_a_new_one
+    build_extension_route(:approvers => [{:approver_user_id => 2}])
+    extension = create_pending_extension
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select '.approval-sticky form[action=?]',
+                  "/issues/#{@issue.id}/extensions/#{extension.id}/approve"
+    assert_select ".approval-sticky a[href=?]", "/issues/#{@issue.id}/extensions/new", 0
+  end
+
+  def test_sticky_header_carries_nothing_for_a_user_who_cannot_act
+    Role.find(1).remove_permission!(:view_approval_workflow, :extend_issue_due_date)
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select '.approval-sticky', 0
+  end
+
   def test_settings_tab_is_hidden_without_the_permission
     Role.find(1).remove_permission!(:manage_approval_routes)
     log_user('jsmith', 'jsmith')

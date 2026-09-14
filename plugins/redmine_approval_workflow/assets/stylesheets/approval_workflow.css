@@ -62,6 +62,34 @@ ol.extension-steps .approval-rejected { color: #b00; font-weight: bold; }
 
 table.approval-step-form input[type=text] { width: 100%; }
 
+/* Chain summary and buttons inside Redmine's floating issue header. The header
+   is a flex row whose .subject grows, so an auto start-margin parks this at
+   the far end -- the space left empty in core. */
+#sticky-issue-header .approval-sticky {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-inline-start: auto;
+  padding-inline-start: 12px;
+  white-space: nowrap;
+}
+#sticky-issue-header .approval-sticky form { display: inline; margin: 0; }
+#sticky-issue-header .approval-sticky-step { color: #555; }
+#sticky-issue-header .approval-sticky-target { color: #777; }
+#sticky-issue-header .approval-sticky-sign {
+  background: #2a7f2a; color: #fff; border: 0; border-radius: 3px;
+  padding: 3px 10px; cursor: pointer; font-size: 0.9em;
+}
+#sticky-issue-header .approval-sticky-sign:hover { background: #226622; }
+#sticky-issue-header .approval-sticky-link { font-size: 0.9em; }
+
+/* On a narrow screen the subject alone fills the bar; the buttons stay in the
+   panel, where they have always been. */
+@media screen and (max-width: 899px) {
+  #sticky-issue-header .approval-sticky { display: none; }
+}
+
 #top-menu a.pending-approvals-alert {
   background: #c62828;
   color: #fff;

@@ -120,7 +120,7 @@ module RedmineApprovalWorkflow
     def approval_signable_by?(user, target_status, step = nil)
       return false if target_status.nil?
       return false unless attributes_editable?(user)
-      return false if step && !step.assigned_to?(user, project)
+      return false if step && !step.assigned_to?(user, self)
 
       new_statuses_allowed_to(user).include?(target_status)
     end

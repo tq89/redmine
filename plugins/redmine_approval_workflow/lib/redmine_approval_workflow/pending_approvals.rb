@@ -112,7 +112,7 @@ module RedmineApprovalWorkflow
     def signable?(user, issue, step, transitions)
       return false unless issue.attributes_editable?(user)
       # A step that names its approver is shown only to them.
-      return false unless step.assigned_to?(user, issue.project)
+      return false unless step.assigned_to?(user, issue)
 
       rows = transitions[[issue.tracker_id, issue.status_id, step.issue_status_id]]
       return false if rows.blank?

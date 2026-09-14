@@ -12,10 +12,8 @@
       <li class="<%= approval_step_css(state) %>">
         <%= approval_step_icon(state) %>
         <span class="approval-step-name"><%= h step.name %></span>
-        <% if step.approver_user %>
-          <span class="approval-assignee"><%= l(:label_assigned_person) %>: <%= h step.approver_user.name %></span>
-        <% elsif step.approver_role %>
-          <span class="approval-assignee"><%= l(:label_assigned_role) %>: <%= h step.approver_role.name %></span>
+        <% if (approver = approval_step_approver_label(step)) %>
+          <span class="approval-assignee"><%= h approver %></span>
         <% end %>
         <% if signature %>
           <span class="approval-step-signature">

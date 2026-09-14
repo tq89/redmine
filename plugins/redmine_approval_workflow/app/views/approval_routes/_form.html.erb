@@ -40,35 +40,60 @@
         <th><%= l(:button_delete) %></th>
       </tr>
     </thead>
-    <tbody>
+    <tbody id="approval-step-rows">
       <%= f.fields_for :steps do |sf| %>
-        <tr>
-          <td><%= sf.number_field :position, :size => 3, :min => 0 %></td>
-          <td><%= sf.text_field :name, :size => 30 %></td>
-          <% if @route.extension? %>
-            <%= sf.hidden_field :issue_status_id, :value => '' %>
-          <% else %>
-            <td>
-              <%= sf.select :issue_status_id,
-                            [[l(:label_none), '']] + IssueStatus.sorted.map {|s| [s.name, s.id]} %>
-            </td>
-          <% end %>
-          <td>
-            <%= sf.select :approver_role_id,
-                          [[l(:label_approver_anyone), '']] + approval_role_options,
-                          {}, :class => 'approver-role' %>
-            <%= sf.select :approver_user_id,
-                          [[l(:label_approver_anyone), '']] + approval_member_options(@project),
-                          {}, :class => 'approver-user' %>
-          </td>
-          <td><%= sf.text_field :button_label, :size => 16,
-                                :placeholder => l(:button_approve) %></td>
-          <td><%= sf.check_box :_destroy unless sf.object.new_record? %></td>
-        </tr>
+        <%= render :partial => 'approval_routes/step_fields', :locals => {:sf => sf} %>
       <% end %>
     </tbody>
   </table>
 
+  <p>
+    <%= link_to sprite_icon('add', l(:label_approval_step_add)), '#',
+                :id => 'approval-add-step', :class => 'icon icon-add' %>
+  </p>
+
   <em class="info"><%= @route.extension? ? l(:text_extension_approver_hint) : l(:text_approver_hint) %></em>
   <em class="info"><%= l(:text_button_label_hint) %></em>
 </fieldset>
+
+<%
+  # A blank row kept out of the form, used as the pattern for rows added by the
+  # button below. child_index puts a placeholder where Rails would write the
+  # index, so the clone gets a name the nested-attributes hash accepts -- Rails
+  # only treats that hash as a collection when EVERY key is numeric.
+  template_row = capture do
+    f.fields_for :steps, ApprovalRouteStep.new(:approval_route => @route),
+                 :child_index => '__INDEX__' do |sf|
+      concat(render(:partial => 'approval_routes/step_fields', :locals => {:sf => sf}))
+    end
+  end
+%>
+<template id="approval-step-template"><%= template_row %></template>
+
+<script>
+  (function () {
+    var link = document.getElementById('approval-add-step');
+    var tpl = document.getElementById('approval-step-template');
+    var body = document.getElementById('approval-step-rows');
+    if (!link || !tpl || !body) { return; }
+
+    link.addEventListener('click', function (event) {
+      event.preventDefault();
+      // Never reuse an index: a removed row must not hand its name to a new
+      // one, or the two would collide in the submitted hash.
+      var index = Date.now() % 100000000;
+      var html = tpl.innerHTML.split('__INDEX__').join(String(index));
+      var host = document.createElement('tbody');
+      host.innerHTML = html;
+      var row = host.querySelector('tr');
+      if (!row) { return; }
+      body.appendChild(row);
+
+      // Position drives the whole chain, so a new row lands at the end.
+      var position = row.querySelector('input[name$="[position]"]');
+      if (position) { position.value = body.querySelectorAll('tr').length - 1; }
+      var name = row.querySelector('input[name$="[name]"]');
+      if (name) { name.focus(); }
+    });
+  })();
+</script>

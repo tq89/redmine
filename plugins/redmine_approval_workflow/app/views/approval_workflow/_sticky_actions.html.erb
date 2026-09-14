@@ -1,0 +1,50 @@
+<%
+  # What the chain looks like from the floating header: the step awaiting a
+  # signature and the buttons for it. Rendered hidden by the issue panel and
+  # moved into Redmine's own #sticky-issue-header by the script there.
+  issue = local_assigns[:issue]
+  step = issue.current_approval_step
+  can_approve = issue.can_approve?(User.current)
+  can_reject = issue.can_reject_approval?(User.current)
+  extension = issue.issue_extensions.detect {|e| e.pending? && e.signable_by?(User.current)}
+  can_extend = issue.extendable_by?(User.current)
+%>
+<% if step || extension || can_extend %>
+  <div class="approval-sticky">
+    <% if step %>
+      <span class="approval-sticky-step">
+        <%= h step.name %>
+        <% if step.issue_status %>
+          <span class="approval-sticky-target">&rarr; <%= h step.issue_status.name %></span>
+        <% end %>
+      </span>
+    <% end %>
+
+    <% if can_approve %>
+      <%= button_to issue.approval_action_label,
+                    issue_approvals_path(issue, :decision => 'approve'),
+                    :method => :post,
+                    :class => 'approval-sticky-sign',
+                    :data => {:confirm => l(:text_confirm_quick_sign,
+                                            :status => issue.approval_target_status&.name)} %>
+    <% end %>
+    <% if can_reject %>
+      <%= link_to l(:button_reject_approval),
+                  new_issue_approval_path(issue, :decision => 'reject'),
+                  :class => 'approval-sticky-link' %>
+    <% end %>
+
+    <% if extension %>
+      <%= button_to extension.approval_action_label,
+                    approve_issue_issue_extension_path(issue, extension),
+                    :method => :post,
+                    :class => 'approval-sticky-sign',
+                    :data => {:confirm => l(:text_confirm_extension_approve,
+                                            :date => format_date(extension.new_due_date))} %>
+    <% elsif can_extend %>
+      <%= link_to l(:button_extend_due_date),
+                  new_issue_issue_extension_path(issue),
+                  :class => 'approval-sticky-link' %>
+    <% end %>
+  </div>
+<% end %>
