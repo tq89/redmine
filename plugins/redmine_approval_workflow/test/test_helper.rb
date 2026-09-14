@@ -19,6 +19,22 @@ module RedmineApprovalWorkflow
       route.reload
     end
 
+    # Builds an extension chain. Extension steps carry no status, so each one
+    # has to name its approver; +approvers+ is one attribute hash per step.
+    def build_extension_route(tracker_id: 1, project_id: nil,
+                              approvers: [{:approver_user_id => 2}, {:approver_user_id => 3}])
+      route = ApprovalRoute.create!(
+        :name => 'Lưu trình gia hạn',
+        :tracker_id => tracker_id,
+        :project_id => project_id,
+        :kind => ApprovalRoute::EXTENSION_KIND
+      )
+      approvers.each_with_index do |attrs, index|
+        route.steps.create!({:name => "Duyệt #{index + 1}", :position => index}.merge(attrs))
+      end
+      route.reload
+    end
+
     def set_plugin_settings(values)
       Setting.plugin_redmine_approval_workflow = {
         'max_extension_days' => '30',

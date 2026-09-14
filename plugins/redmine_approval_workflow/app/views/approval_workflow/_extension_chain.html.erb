@@ -1,0 +1,35 @@
+<%
+  # The approval chain of one extension request. Shared by the issue panel and
+  # the pending-requests page so both show the same thing.
+  extension = local_assigns[:extension]
+  route = extension.approval_route
+%>
+<% if route %>
+  <ol class="approval-steps extension-steps">
+    <% route.steps.each do |step| %>
+      <% state = extension_step_state(extension, step) %>
+      <% signature = last_extension_signature_for(extension, step) %>
+      <li class="<%= approval_step_css(state) %>">
+        <%= approval_step_icon(state) %>
+        <span class="approval-step-name"><%= h step.name %></span>
+        <% if step.approver_user %>
+          <span class="approval-assignee"><%= l(:label_assigned_person) %>: <%= h step.approver_user.name %></span>
+        <% elsif step.approver_role %>
+          <span class="approval-assignee"><%= l(:label_assigned_role) %>: <%= h step.approver_role.name %></span>
+        <% end %>
+        <% if signature %>
+          <span class="approval-step-signature">
+            <%= link_to_user signature.user %>,
+            <%= format_time signature.created_at %>
+            <% if signature.rejected? %>
+              <span class="approval-rejected"><%= l(:label_approval_rejected) %></span>
+            <% end %>
+            <% if signature.comments.present? %>
+              <div class="approval-step-comment"><%= textilizable signature.comments %></div>
+            <% end %>
+          </span>
+        <% end %>
+      </li>
+    <% end %>
+  </ol>
+<% end %>

@@ -1,0 +1,13 @@
+<%= l(:mail_body_extension_pending, :step => @step_name) %>
+
+<%= @issue.tracker.name %> #<%= @issue.id %>: <%= @issue.subject %>
+<%= l(:label_project) %>: <%= @issue.project.name %>
+<%= l(:label_approval_step) %>: <%= @step_name %>
+<%= l(:label_extension_from_to) %>: <%= @extension.previous_due_date ? format_date(@extension.previous_due_date) : l(:label_none) %> -> <%= format_date(@extension.new_due_date) %>
+<%= l(:label_extension_days) %>: <%= @extension.days %>
+<%= l(:label_extension_requested_by) %>: <%= @extension.user %>
+<% if @extension.reason.present? %><%= l(:label_extension_reason) %>: <%= @extension.reason %>
+<% end %>
+--
+<%= l(:text_approval_mail_footer) %>
+<%= @issue_url %>

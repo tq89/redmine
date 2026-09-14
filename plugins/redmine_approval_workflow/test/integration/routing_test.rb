@@ -25,4 +25,11 @@ class RedmineApprovalWorkflowRoutingTest < Redmine::RoutingTest
     should_route 'POST /issues/1/approvals' => 'approvals#create', :issue_id => '1'
     should_route 'GET /issues/1/extensions/new' => 'issue_extensions#new', :issue_id => '1'
   end
+
+  def test_extension_decisions
+    should_route 'POST /issues/1/extensions/2/approve' => 'issue_extensions#approve',
+                 :issue_id => '1', :id => '2'
+    should_route 'POST /issues/1/extensions/2/reject' => 'issue_extensions#reject',
+                 :issue_id => '1', :id => '2'
+  end
 end

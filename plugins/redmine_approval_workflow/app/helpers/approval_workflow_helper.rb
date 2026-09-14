@@ -30,6 +30,34 @@ module ApprovalWorkflowHelper
     issue.approval_signatures.reverse.find {|s| s.step_position == step.position}
   end
 
+  # Same three states as an issue chain, read off the extension request instead.
+  def extension_step_state(extension, step)
+    position = extension.approval_position
+    if step.position < position
+      :done
+    elsif step.position == position
+      :current
+    else
+      :pending
+    end
+  end
+
+  def last_extension_signature_for(extension, step)
+    extension.approval_signatures.reverse.find {|s| s.step_position == step.position}
+  end
+
+  def extension_status_label(extension)
+    case extension.status
+    when IssueExtension::PENDING  then l(:label_extension_status_pending)
+    when IssueExtension::REJECTED then l(:label_extension_status_rejected)
+    else                               l(:label_extension_status_approved)
+    end
+  end
+
+  def extension_status_css(extension)
+    "extension-status extension-status-#{extension.status}"
+  end
+
   # Roles that can hold a workflow transition; builtin roles are excluded
   # because a step is assigned to people who are members of the project.
   def approval_role_options

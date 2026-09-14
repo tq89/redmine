@@ -10,6 +10,8 @@ class IssueExtensionsControllerTest < Redmine::ControllerTest
   def setup
     User.current = nil
     IssueExtension.delete_all
+    ApprovalSignature.delete_all
+    ApprovalRoute.delete_all
     @issue = Issue.find(1)
     # Core fixtures use dates relative to today, and Issue rejects a due date
     # before its start date, so every date here hangs off start_date.
@@ -123,5 +125,110 @@ class IssueExtensionsControllerTest < Redmine::ControllerTest
 
     assert_response :success
     assert_select 'input[name=?]', 'issue_extension[new_due_date]'
+  end
+
+  # --- with an approval chain -----------------------------------------------
+
+  def test_request_with_a_chain_waits_instead_of_moving_the_due_date
+    build_extension_route
+    Role.find(2).add_permission!(:extend_issue_due_date)
+    @request.session[:user_id] = 2
+
+    assert_difference 'IssueExtension.count', 1 do
+      assert_no_difference 'Journal.count' do
+        post :create, :params => {
+          :issue_id => @issue.id,
+          :issue_extension => {:new_due_date => (@due + 15).to_s, :reason => 'Chờ vật tư'}
+        }
+      end
+    end
+
+    assert_redirected_to "/issues/#{@issue.id}"
+    assert_equal @due, @issue.reload.due_date, 'the deadline must not move on a request alone'
+    assert IssueExtension.last.pending?
+  end
+
+  def test_new_shows_the_chain_when_the_tracker_has_one
+    build_extension_route
+    @request.session[:user_id] = 2
+
+    get :new, :params => {:issue_id => @issue.id}
+
+    assert_response :success
+    assert_select 'ol.extension-steps li', 2
+  end
+
+  def test_approve_by_the_named_approver_signs_the_step
+    build_extension_route
+    extension = create_pending_extension
+    @request.session[:user_id] = 2
+
+    assert_difference 'ApprovalSignature.count', 1 do
+      post :approve, :params => {:issue_id => @issue.id, :id => extension.id}
+    end
+
+    assert_redirected_to "/issues/#{@issue.id}"
+    assert extension.reload.pending?, 'one of two steps signed, still waiting'
+    assert_equal @due, @issue.reload.due_date
+  end
+
+  def test_approve_by_somebody_else_is_refused
+    build_extension_route
+    extension = create_pending_extension
+    Role.find(2).add_permission!(:extend_issue_due_date)
+    # User 3 holds the second step, not the one awaiting a signature.
+    @request.session[:user_id] = 3
+
+    assert_no_difference 'ApprovalSignature.count' do
+      post :approve, :params => {:issue_id => @issue.id, :id => extension.id}
+    end
+
+    assert_response :forbidden
+    assert extension.reload.pending?
+  end
+
+  def test_the_last_approval_moves_the_due_date
+    build_extension_route(:approvers => [{:approver_user_id => 2}])
+    extension = create_pending_extension
+    @request.session[:user_id] = 2
+
+    post :approve, :params => {:issue_id => @issue.id, :id => extension.id}
+
+    assert_redirected_to "/issues/#{@issue.id}"
+    assert extension.reload.approved?
+    assert_equal @due + 15, @issue.reload.due_date
+  end
+
+  def test_reject_leaves_the_due_date_where_it_was
+    build_extension_route
+    extension = create_pending_extension
+    @request.session[:user_id] = 2
+
+    post :reject, :params => {:issue_id => @issue.id, :id => extension.id,
+                              :comments => 'Không đủ lý do'}
+
+    assert_redirected_to "/issues/#{@issue.id}"
+    assert extension.reload.rejected?
+    assert_equal @due, @issue.reload.due_date
+  end
+
+  def test_deciding_an_unknown_request_is_a_404
+    @request.session[:user_id] = 2
+
+    post :approve, :params => {:issue_id => @issue.id, :id => 999_999}
+
+    assert_response :not_found
+  end
+
+  private
+
+  def create_pending_extension(days: 15)
+    route = ApprovalRoute.extension_for_issue(@issue)
+    IssueExtension.create!(:issue => @issue, :user_id => 2,
+                           :approval_route => route,
+                           :status => IssueExtension::PENDING,
+                           :previous_due_date => @due,
+                           :new_due_date => @due + days,
+                           :reason => 'Chờ vật tư')
   end
 end

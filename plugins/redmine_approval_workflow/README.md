@@ -3,7 +3,7 @@
 Plugin bổ sung hai tính năng cho Redmine 7:
 
 1. **Lưu trình ký** — chuỗi bước ký duyệt có thứ tự; mỗi lần ký sẽ tự đổi trạng thái công việc theo lưu trình đã thiết lập.
-2. **Gia hạn công việc** — đẩy ngày hoàn thành sang mốc mới, với giới hạn số ngày tối đa cho mỗi lần do quản trị viên đặt.
+2. **Gia hạn công việc** — đẩy ngày hoàn thành sang mốc mới, với giới hạn số ngày tối đa cho mỗi lần do quản trị viên đặt. Gia hạn cũng có **lưu trình ký riêng**: khi dự án khai báo lưu trình gia hạn, đơn phải ký đủ các bước thì ngày hoàn thành mới đổi.
 
 ## Nguyên tắc phân quyền ký duyệt
 
@@ -46,14 +46,61 @@ Kiểm tra `read_only_attribute_names` phải làm tường minh vì plugin gán
 `due_date` trực tiếp chứ không qua `safe_attributes=` — cùng lý do như với
 status.
 
+## Lưu trình ký cho gia hạn
+
+Có hai **loại** lưu trình, khai báo cùng một chỗ trong Cài đặt dự án:
+
+| Loại | Ký để làm gì |
+|---|---|
+| **Duyệt công việc** | ký chuyển công việc qua các trạng thái |
+| **Duyệt gia hạn** | duyệt đơn xin gia hạn; **không** đụng tới trạng thái công việc |
+
+Khi tracker **có** lưu trình gia hạn:
+
+1. Người xin gia hạn bấm *Gia hạn* như cũ. Đơn được tạo ở trạng thái **Chờ
+   duyệt** — **ngày hoàn thành của công việc không đổi**.
+2. Đơn hiện trên trang công việc kèm đầy đủ lưu trình, và trên chuông + trang
+   *Công việc chờ tôi ký* của đúng người đang tới lượt.
+3. Mỗi bước duyệt đẩy đơn sang bước sau. **Chỉ khi bước cuối duyệt** thì
+   `due_date` mới nhảy sang mốc mới, kèm một journal ghi lại thay đổi đó.
+4. Bị **từ chối** ở bất kỳ bước nào: đơn đóng lại ở trạng thái *Đã từ chối*,
+   ngày hoàn thành giữ nguyên.
+
+Không khai báo lưu trình gia hạn thì mọi thứ chạy y như trước: bấm là đổi ngày
+ngay.
+
+### Bước gia hạn bắt buộc chỉ định người ký
+
+Bước của lưu trình công việc lấy quyền ký từ *chuyển trạng thái*. Bước gia hạn
+**không có trạng thái đích** nên không có chuyển trạng thái nào để dựa vào — vì
+vậy mỗi bước gia hạn **bắt buộc** phải chỉ định một vai trò hoặc một người. Mô
+hình từ chối lưu bước thiếu người ký.
+
+Ngoài chỉ định đó, người ký vẫn phải sửa được công việc và **không** bị khoá
+trường `due_date` ở trạng thái hiện tại — đúng quy tắc quyền gia hạn nêu trên.
+
+### Đơn bị từ chối không tính vào hạn mức
+
+Giới hạn *Số lần gia hạn tối đa* chỉ đếm đơn **đã duyệt** và đơn **đang chờ**.
+Một lần bị từ chối không làm mất suất của người xin.
+
+### Chữ ký gia hạn tách hẳn khỏi lưu trình công việc
+
+Cả hai dùng chung bảng `approval_signatures`, phân biệt bằng cột
+`issue_extension_id`. Quan hệ `Issue#approval_signatures` được giới hạn ở
+`issue_extension_id IS NULL`, nên duyệt một cái hạn **không bao giờ** đẩy lưu
+trình công việc tiến thêm một bước.
+
 ## Nút chuông cạnh ảnh đại diện
 
 Góc phải thanh trên cùng, ngay cạnh nút profile, có **nút chuông** với số đếm
-đỏ. Nhấp vào mở panel gồm hai phần:
+đỏ. Nhấp vào mở panel gồm ba phần:
 
 - **Chờ tôi ký** — mỗi dòng hiện mã công việc, tiêu đề, dự án, tên bước và
   trạng thái sẽ chuyển sang; kèm **nút ký nhanh** (dùng đúng nhãn của bước, có
   hộp xác nhận) và liên kết *Ký kèm ý kiến* nếu muốn ghi chú.
+- **Đơn gia hạn chờ tôi duyệt** — mỗi dòng hiện công việc, tên bước và mốc ngày
+  đang xin (`cũ → mới`), kèm nút duyệt nhanh có hộp xác nhận.
 - **Công việc quá hạn** — việc đang mở được giao cho bạn (hoặc cho nhóm của
   bạn) đã qua hạn, kèm số ngày trễ.
 
@@ -81,6 +128,11 @@ hai bên. **Sửa một bên thì phải sửa bên kia.**
 
 Danh sách quá hạn tốn thêm đúng **một** truy vấn, giới hạn 20 dòng.
 
+Phần đơn gia hạn đi theo đường khác: bước gia hạn không dựa vào chuyển trạng
+thái nên không có bộ lọc SQL nào rẻ để bám vào. Bù lại, tập đơn **đang chờ**
+vốn đã rất nhỏ (chỉ những đơn chưa ai quyết), nên nó được nạp thẳng rồi lọc
+trong bộ nhớ.
+
 Quản trị viên có thể tắt chuông (Quản trị → Plugins → Cấu hình) nếu máy chủ yếu.
 
 ## Gửi email khi tới lượt ký (tuỳ chọn)
@@ -92,7 +144,9 @@ Mail được gửi khi:
 
 - tạo công việc mới thuộc tracker có lưu trình (bước 1 lập tức chờ ký);
 - ai đó **ký duyệt** xong, bước kế tiếp chuyển sang người khác;
-- ai đó **từ chối**, công việc trả về bước trước đó.
+- ai đó **từ chối**, công việc trả về bước trước đó;
+- có **đơn xin gia hạn** mới, hoặc một bước gia hạn vừa được ký và tới lượt
+  người sau. Đơn đã duyệt xong hoặc đã bị từ chối thì không gửi cho ai nữa.
 
 Người nhận là những ai có quyền ký bước đang chờ — tức là có quyền chuyển sang
 trạng thái đích của bước đó. Danh sách được thu hẹp trước bằng các vai trò thật
@@ -173,14 +227,17 @@ Bật module **Lưu trình ký & Gia hạn** trong Cài đặt dự án → Mô-
 Lưu trình được khai báo tại **Cài đặt dự án → thẻ "Lưu trình ký"**, và **chỉ áp
 dụng cho dự án đó**. Cần quyền *Quản lý lưu trình ký* (Quản trị → Vai trò).
 
-Mỗi lưu trình gồm tên, tracker, trạng thái khi bị từ chối, và danh sách bước.
+Mỗi lưu trình gồm tên, **loại** (*Duyệt công việc* hay *Duyệt gia hạn*),
+tracker, trạng thái khi bị từ chối, và danh sách bước. Loại **không đổi được**
+sau khi đã lưu — đổi loại là đổi hẳn ý nghĩa của các chữ ký đã ghi.
+
 Mỗi **bước** khai báo:
 
 | Trường | Ý nghĩa |
 |---|---|
 | Tên bước | ví dụ "Trưởng bộ phận duyệt" |
-| Trạng thái sau khi ký | trạng thái công việc chuyển sang |
-| **Người ký** | một **vai trò** HOẶC một **người** cụ thể — không chọn cả hai |
+| Trạng thái sau khi ký | trạng thái công việc chuyển sang — **chỉ có ở lưu trình công việc** |
+| **Người ký** | một **vai trò** HOẶC một **người** cụ thể — không chọn cả hai; **bắt buộc** với bước gia hạn |
 | **Nhãn nút** | chữ trên nút thao tác, ví dụ "Trình ký", "Phê duyệt"; để trống = "Ký duyệt" |
 
 ### Chỉ định người ký chỉ **thu hẹp**, không bao giờ mở rộng
@@ -272,6 +329,13 @@ trình không thể lặng lẽ bỏ qua một bước — khi lệch, panel hi�
 Mỗi thao tác đều tạo một journal trên công việc, nên lịch sử hiển thị đầy đủ
 trong tab thông thường của Redmine.
 
+### Ký duyệt không tự thêm bình luận
+
+Journal chỉ ghi **thay đổi trạng thái** (hoặc thay đổi `due_date` với gia hạn).
+Phần ghi chú của journal để trống trừ khi người ký tự gõ vào ô *Ý kiến* — plugin
+không sinh ra dòng "Ký duyệt bước: ..." nào nữa. Ý kiến đã gõ vẫn được lưu hai
+chỗ: trong journal và trong chính bản ghi chữ ký (hiện trên panel lưu trình).
+
 ## Quyền
 
 | Quyền | Tác dụng |
@@ -287,4 +351,4 @@ trong tab thông thường của Redmine.
 bundle exec rails test plugins/redmine_approval_workflow/test RAILS_ENV=test
 ```
 
-127 test, 464 assertion.
+197 test, 744 assertion.

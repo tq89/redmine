@@ -146,6 +146,89 @@ class ApprovalMailerTest < ActiveSupport::TestCase
     assert_include "/issues/#{@issue.id}/approvals/new", body
   end
 
+  # --- extension chains -----------------------------------------------------
+
+  def build_pending_extension(approvers: [{:approver_user_id => 2}, {:approver_user_id => 3}])
+    IssueExtension.delete_all
+    Role.find(1).add_permission!(:extend_issue_due_date)
+    Role.find(2).add_permission!(:extend_issue_due_date)
+    due = @issue.start_date + 30
+    @issue.update_columns(:due_date => due)
+    @issue.reload
+    route = build_extension_route(:tracker_id => @issue.tracker_id, :approvers => approvers)
+    IssueExtension.create!(:issue => @issue, :user_id => 2,
+                           :approval_route => route,
+                           :status => IssueExtension::PENDING,
+                           :previous_due_date => due,
+                           :new_due_date => due + 10,
+                           :reason => 'Chờ vật tư')
+  end
+
+  # Applying an extension writes due_date, and Redmine mails its own watchers
+  # about that journal, so the turn-to-sign mails have to be picked out.
+  def extension_mails
+    subject = ::I18n.t(:mail_subject_extension_pending, :locale => :en)
+    ActionMailer::Base.deliveries.select {|mail| mail.subject.to_s.include?(subject)}
+  end
+
+  def test_mails_the_named_approver_of_the_pending_extension_step
+    extension = build_pending_extension
+
+    ApprovalMailer.deliver_extension_pending(extension)
+
+    assert_equal [User.find(2).mail], extension_mails.flat_map(&:to).uniq
+  end
+
+  def test_extension_mail_names_the_step_and_the_dates
+    extension = build_pending_extension
+
+    ApprovalMailer.deliver_extension_pending(extension)
+
+    mail = extension_mails.first
+    assert_not_nil mail
+    assert_match(/##{@issue.id}/, mail.subject)
+    body = mail.parts.map(&:body).join(' ')
+    assert_include 'Duyệt 1', body
+    assert_include extension.new_due_date.to_s.split('-').last, body
+    assert_include 'Chờ vật tư', body
+  end
+
+  def test_extension_mail_goes_to_the_next_approver_after_a_signature
+    extension = build_pending_extension
+
+    RedmineApprovalWorkflow::ExtensionApproval.decide(extension, User.find(2), :approve => true)
+
+    # Step 1 was signed by user 2, so the turn -- and the mail -- is user 3's.
+    assert_equal [User.find(3).mail], extension_mails.flat_map(&:to).uniq
+  end
+
+  def test_no_extension_mail_once_the_request_is_decided
+    extension = build_pending_extension(:approvers => [{:approver_user_id => 2}])
+
+    RedmineApprovalWorkflow::ExtensionApproval.decide(extension, User.find(2), :approve => true)
+
+    assert extension.reload.approved?
+    assert_empty extension_mails, 'nobody is waiting on this request any more'
+  end
+
+  def test_extension_mail_is_off_when_the_setting_is_off
+    set_plugin_settings('notify_on_pending_approval' => '0')
+    extension = build_pending_extension
+
+    ApprovalMailer.deliver_extension_pending(extension)
+
+    assert_empty extension_mails
+  end
+
+  def test_extension_notification_failure_does_not_undo_the_signature
+    extension = build_pending_extension
+    ApprovalMailer.stubs(:deliver_extension_pending).raises(StandardError, 'smtp down')
+
+    assert_difference 'ApprovalSignature.count', 1 do
+      RedmineApprovalWorkflow::ExtensionApproval.decide(extension, User.find(2), :approve => true)
+    end
+  end
+
   def test_notification_failure_does_not_break_issue_creation
     ApprovalMailer.stubs(:deliver_approval_pending).raises(StandardError, 'smtp down')
 

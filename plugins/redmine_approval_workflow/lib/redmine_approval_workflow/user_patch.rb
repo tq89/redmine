@@ -17,6 +17,12 @@ module RedmineApprovalWorkflow
       pending_approval_count > 0
     end
 
+    # Extension requests waiting on this user's signature. Memoised for the same
+    # reason as above: the bell asks for it more than once per page.
+    def pending_extension_requests
+      @pending_extension_requests ||= ExtensionApproval.pending_for(self)
+    end
+
     # Open issues assigned to this user, or to one of their groups, whose due
     # date has passed. One query, capped, shown alongside the signing queue.
     OVERDUE_LIMIT = 20

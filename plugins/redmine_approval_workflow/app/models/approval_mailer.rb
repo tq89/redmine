@@ -31,6 +31,29 @@ class ApprovalMailer < Mailer
                      "#{l(:mail_subject_approval_pending)}"
   end
 
+  # Same idea for an extension request. It carries no status change, so what the
+  # recipient needs to see is the deadline being asked for and why.
+  def extension_pending(user, extension, step_name, actor_id = nil)
+    issue = extension.issue
+    redmine_headers 'Project' => issue.project.identifier,
+                    'Issue-Tracker' => issue.tracker.name,
+                    'Issue-Id' => issue.id
+    @author = User.find_by_id(actor_id)
+    @user = user
+    @extension = extension
+    @issue = issue
+    @step_name = step_name
+    @issue_url = url_for(:controller => 'issues', :action => 'show', :id => issue)
+    # No @message_id_object: Mailer.token_for reads created_on/updated_on, which
+    # an IssueExtension does not have. Referencing the issue is what threads
+    # these under it in a mail client, and that is all that was wanted.
+    references(issue)
+
+    mail :to => user,
+         :subject => "[#{issue.project.name} - #{issue.tracker.name} ##{issue.id}] " \
+                     "#{l(:mail_subject_extension_pending)}"
+  end
+
   class << self
     # Notifies whoever can now sign +issue+. +actor+ is the person whose action
     # created this turn and is never notified of their own move.
@@ -44,6 +67,19 @@ class ApprovalMailer < Mailer
       recipients(issue, step, actor).each do |user|
         approval_pending(user, issue, step.name, step.issue_status.name,
                          actor&.id).deliver_later
+      end
+    end
+
+    # Notifies whoever can now sign +extension+.
+    def deliver_extension_pending(extension, actor = nil)
+      return unless enabled?
+      return unless extension.pending?
+
+      step = extension.current_approval_step
+      return if step.nil?
+
+      extension_recipients(extension, step, actor).each do |user|
+        extension_pending(user, extension, step.name, actor&.id).deliver_later
       end
     end
 
@@ -92,6 +128,33 @@ class ApprovalMailer < Mailer
       return false if user.mail.blank? || user.mail_notification == 'none'
 
       issue.visible?(user) && issue.can_approve?(user)
+    end
+
+    # An extension step always names its approver -- the model refuses to save
+    # one that does not -- so the candidate set is already the narrow one and
+    # there is no workflow transition to widen it back out.
+    def extension_recipients(extension, step, actor = nil)
+      issue = extension.issue
+      candidates =
+        if step.approver_user_id.present?
+          Array(User.active.find_by_id(step.approver_user_id))
+        elsif step.approver_role_id.present?
+          User.active.
+            joins(:members => :member_roles).
+            where(:members => {:project_id => issue.project_id}).
+            where(:member_roles => {:role_id => step.approver_role_id}).
+            distinct.
+            to_a
+        else
+          []
+        end
+
+      candidates.select do |user|
+        next false if actor && user.id == actor.id
+        next false if user.mail.blank? || user.mail_notification == 'none'
+
+        issue.visible?(user) && extension.signable_by?(user)
+      end
     end
   end
 end

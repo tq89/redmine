@@ -2,6 +2,10 @@ en:
   label_approval_route: "Approval route"
   label_approval_route_plural: "Approval routes"
   label_approval_route_new: "New approval route"
+  label_route_kind: "Route type"
+  label_route_kind_issue: "Issue approval"
+  label_route_kind_extension: "Extension approval"
+  text_route_kind_hint: "An issue route signs the issue through its statuses. An extension route decides deadline extension requests and never touches the issue status. The type cannot be changed once the route is saved."
   label_approval_step: "Approval step"
   label_approval_step_plural: "Approval steps"
   label_approval_step_done: "Signed"
@@ -40,6 +44,7 @@ en:
   text_project_approval_routes_hint: "Routes declared here apply to this project only."
   text_routes_moved_to_project_settings: "Approval routes are configured in each project's Settings, under the \"Approval routes\" tab."
   text_approver_hint: "Pick a role OR one person, not both. Left empty, anyone the workflow allows may sign. Once set, only they see the sign button, the reminder and the email."
+  text_extension_approver_hint: "An extension step has no status behind it, so there is no workflow transition to decide who may sign. Every step must name a role or one person."
   text_button_label_hint: "Wording of the step's action button, e.g. \"Submit\" or \"Approve\". Empty falls back to \"Approve\"."
   label_pending_approval_plural: "Issues awaiting my signature"
   label_pending_approval_with_count: "To sign (%{count})"
@@ -73,10 +78,26 @@ en:
   label_extension_limit: "Limit per extension"
   label_max_extension_days: "at most %{count} days each time"
   label_no_extension_limit: "no limit"
+  label_extension_route_plural: "Extension approval routes"
+  label_extension_route_new: "New extension route"
+  label_extension_request: "Extension request"
+  label_extension_requested_by: "Requested by"
+  label_extension_status_pending: "Awaiting approval"
+  label_extension_status_approved: "Approved"
+  label_extension_status_rejected: "Rejected"
+  label_pending_extension_plural: "Extension requests awaiting my approval"
+  label_no_pending_extension: "No extension request is waiting for you."
+  text_extension_route_hint: "With an extension route on the tracker, a request has to collect these signatures and the due date only moves once the last step approves. Without one the due date moves as soon as it is requested, as it did before."
+  text_extension_pending_hint: "The due date does not move until the last step approves."
+  text_confirm_extension_approve: "Approve the extension to %{date}?"
 
   button_extend_due_date: "Extend"
+  button_approve_extension: "Approve extension"
+  button_reject_extension: "Reject"
 
   notice_issue_extended: "Due date extended to %{date}."
+  notice_issue_extension_requested: "Extension request submitted; it is waiting for approval."
+  notice_issue_extension_rejected: "The extension request was rejected."
 
   text_extension_journal: "Extended by %{days} days, to %{date}"
   text_max_extension_days_hint: "Maximum number of days a single extension may add. Enter 0 for no limit."
@@ -94,6 +115,8 @@ en:
   text_notify_on_pending_approval_hint: "Sent to whoever may sign the pending step. Nobody is mailed about their own action. Check the email configuration before turning this on."
   mail_subject_approval_pending: "It is your turn to sign"
   mail_body_approval_pending: "The following issue is waiting for your signature on step \"%{step}\":"
+  mail_subject_extension_pending: "It is your turn to approve an extension"
+  mail_body_extension_pending: "The following extension request is waiting for your signature on step \"%{step}\":"
   text_approval_mail_footer: "See the issue:"
   text_show_pending_approvals_hint: "Turn off on a constrained server to save one lookup per page load."
 
@@ -108,6 +131,8 @@ en:
           attributes:
             approver_user_id:
               only_one_approver_allowed: "cannot be set together with a role"
+            base:
+              extension_step_needs_approver: "An extension step must name the role or the person who signs it."
         issue_extension:
           attributes:
             new_due_date:

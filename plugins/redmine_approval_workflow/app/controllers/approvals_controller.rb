@@ -111,14 +111,11 @@ class ApprovalsController < ApplicationController
     end
   end
 
+  # Only what the signer actually typed. Redmine journals the status change on
+  # its own, and the step, the decision and who made it are already in the
+  # signature and shown in the panel, so generating a note as well just repeats
+  # the same fact in a second place.
   def journal_notes
-    label = @step ? @step.name : @route.name
-    header =
-      if @approving
-        l(:text_approval_journal_signed, :step => label)
-      else
-        l(:text_approval_journal_rejected, :step => label)
-      end
-    [header, params[:comments].presence].compact.join("\n\n")
+    params[:comments].to_s
   end
 end

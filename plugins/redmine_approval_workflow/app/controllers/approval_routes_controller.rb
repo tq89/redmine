@@ -14,7 +14,7 @@ class ApprovalRoutesController < ApplicationController
   end
 
   def new
-    @route = @project.approval_routes.build
+    @route = @project.approval_routes.build(:kind => route_kind)
     3.times {|index| @route.steps.build(:position => index)}
   end
 
@@ -52,6 +52,11 @@ class ApprovalRoutesController < ApplicationController
 
   private
 
+  def route_kind
+    kind = params[:kind].to_s
+    ApprovalRoute::KINDS.include?(kind) ? kind : ApprovalRoute::ISSUE_KIND
+  end
+
   def find_route
     @route = @project.approval_routes.find(params[:id])
   rescue ActiveRecord::RecordNotFound
@@ -68,7 +73,7 @@ class ApprovalRoutesController < ApplicationController
 
   def route_params
     params.require(:approval_route).permit(
-      :name, :tracker_id, :rejected_status_id, :description, :active,
+      :name, :kind, :tracker_id, :rejected_status_id, :description, :active,
       :steps_attributes => [:id, :name, :issue_status_id, :position,
                             :approver_role_id, :approver_user_id, :button_label,
                             :_destroy]

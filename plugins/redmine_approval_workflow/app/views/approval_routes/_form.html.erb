@@ -3,6 +3,14 @@
 <div class="box tabular">
   <p><%= f.text_field :name, :required => true, :size => 60 %></p>
   <p>
+    <%= f.select :kind,
+                 [[l(:label_route_kind_issue), ApprovalRoute::ISSUE_KIND],
+                  [l(:label_route_kind_extension), ApprovalRoute::EXTENSION_KIND]],
+                 {:label => :label_route_kind},
+                 :disabled => @route.persisted? %>
+    <em class="info"><%= l(:text_route_kind_hint) %></em>
+  </p>
+  <p>
     <%= f.select :tracker_id, @project.trackers.sorted.map {|t| [t.name, t.id]},
                  :required => true, :label => :label_tracker %>
   </p>
@@ -26,7 +34,7 @@
       <tr>
         <th><%= l(:label_order) %></th>
         <th><%= l(:field_name) %></th>
-        <th><%= l(:label_target_status) %></th>
+        <% unless @route.extension? %><th><%= l(:label_target_status) %></th><% end %>
         <th><%= l(:label_approver) %></th>
         <th><%= l(:label_button_label) %></th>
         <th><%= l(:button_delete) %></th>
@@ -37,10 +45,14 @@
         <tr>
           <td><%= sf.number_field :position, :size => 3, :min => 0 %></td>
           <td><%= sf.text_field :name, :size => 30 %></td>
-          <td>
-            <%= sf.select :issue_status_id,
-                          [[l(:label_none), '']] + IssueStatus.sorted.map {|s| [s.name, s.id]} %>
-          </td>
+          <% if @route.extension? %>
+            <%= sf.hidden_field :issue_status_id, :value => '' %>
+          <% else %>
+            <td>
+              <%= sf.select :issue_status_id,
+                            [[l(:label_none), '']] + IssueStatus.sorted.map {|s| [s.name, s.id]} %>
+            </td>
+          <% end %>
           <td>
             <%= sf.select :approver_role_id,
                           [[l(:label_approver_anyone), '']] + approval_role_options,
@@ -57,6 +69,6 @@
     </tbody>
   </table>
 
-  <em class="info"><%= l(:text_approver_hint) %></em>
+  <em class="info"><%= @route.extension? ? l(:text_extension_approver_hint) : l(:text_approver_hint) %></em>
   <em class="info"><%= l(:text_button_label_hint) %></em>
 </fieldset>

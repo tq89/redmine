@@ -118,6 +118,67 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     assert_equal ::I18n.t(:button_approve), route.step_at(1).action_label
   end
 
+  def test_extension_routes_are_configured_from_the_same_settings_tab
+    Role.find(1).add_permission!(:manage_approval_routes)
+    identifier = @issue.project.identifier
+    log_user('jsmith', 'jsmith')
+
+    get "/projects/#{identifier}/settings/approval_routes"
+    assert_response :success
+    assert_select "a[href=?]",
+                  "/projects/#{identifier}/approval_routes/new?kind=extension"
+
+    get "/projects/#{identifier}/approval_routes/new?kind=extension"
+    assert_response :success
+    # An extension step has no target status, so the column is not offered.
+    assert_select 'select[name=?]', 'approval_route[steps_attributes][0][issue_status_id]', 0
+
+    assert_difference 'ApprovalRoute.count', 1 do
+      post "/projects/#{identifier}/approval_routes", :params => {
+        :approval_route => {
+          :name => 'Lưu trình duyệt gia hạn',
+          :kind => 'extension',
+          :tracker_id => 1,
+          :active => '1',
+          :steps_attributes => {
+            '0' => {:name => 'Trưởng bộ phận', :position => 0, :approver_role_id => 1},
+            '1' => {:name => 'Giám đốc', :position => 1, :approver_user_id => 2}
+          }
+        }
+      }
+    end
+
+    route = ApprovalRoute.order(:id).last
+    assert route.extension?
+    assert_equal [nil, nil], route.steps.map(&:issue_status_id)
+    assert_equal 1, route.step_at(0).approver_role_id
+
+    # It governs extension requests, and nothing else.
+    assert_equal route.id, ApprovalRoute.extension_for_issue(@issue).id
+    assert_nil ApprovalRoute.for_issue(@issue)
+  end
+
+  def test_an_extension_route_step_must_name_its_approver
+    Role.find(1).add_permission!(:manage_approval_routes)
+    identifier = @issue.project.identifier
+    log_user('jsmith', 'jsmith')
+
+    assert_no_difference 'ApprovalRoute.count' do
+      post "/projects/#{identifier}/approval_routes", :params => {
+        :approval_route => {
+          :name => 'Thiếu người ký',
+          :kind => 'extension',
+          :tracker_id => 1,
+          :active => '1',
+          :steps_attributes => {'0' => {:name => 'Ai đó', :position => 0}}
+        }
+      }
+    end
+
+    assert_response :success
+    assert_select '#errorExplanation'
+  end
+
   def test_settings_tab_is_hidden_without_the_permission
     Role.find(1).remove_permission!(:manage_approval_routes)
     log_user('jsmith', 'jsmith')
@@ -349,6 +410,112 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     assert_redirected_to '/login?back_url=' + CGI.escape('http://www.example.com/pending_approvals')
   end
 
+  # --- extension chains -----------------------------------------------------
+
+  def test_issue_page_shows_a_pending_extension_with_its_chain_and_buttons
+    build_extension_route
+    extension = create_pending_extension
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select 'div.extension-request' do
+      assert_select 'ol.extension-steps li', 2
+      assert_select 'li.approval-step-current', 1
+      assert_select '.extension-status-pending'
+    end
+    assert_select "form[action=?]",
+                  "/issues/#{@issue.id}/extensions/#{extension.id}/approve"
+    assert_select "form[action=?]",
+                  "/issues/#{@issue.id}/extensions/#{extension.id}/reject"
+  end
+
+  def test_the_sign_buttons_are_hidden_from_somebody_else
+    build_extension_route(:approvers => [{:approver_user_id => 3}])
+    extension = create_pending_extension
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select 'div.extension-request'
+    assert_select "form[action=?]",
+                  "/issues/#{@issue.id}/extensions/#{extension.id}/approve", 0
+  end
+
+  def test_bell_lists_extension_requests_waiting_on_the_user
+    build_extension_route
+    create_pending_extension
+    log_user('jsmith', 'jsmith')
+
+    get '/'
+
+    assert_response :success
+    assert_select '#approval-bell .approval-bell-extensions' do
+      assert_select '.approval-bell-item', 1
+    end
+    assert_select '#approval-bell span.approval-bell-count', :text => '1'
+  end
+
+  def test_pending_page_lists_extension_requests
+    build_extension_route
+    extension = create_pending_extension
+    log_user('jsmith', 'jsmith')
+
+    get '/pending_approvals'
+
+    assert_response :success
+    assert_select "form[action=?]",
+                  "/issues/#{@issue.id}/extensions/#{extension.id}/approve"
+  end
+
+  # The whole point of the chain, end to end: request, first signature, second
+  # signature, and only then does the deadline move.
+  def test_full_extension_round_trip
+    build_extension_route
+    due = @issue.start_date + 30
+    @issue.update_columns(:due_date => due)
+    set_plugin_settings('max_extension_days' => '30')
+    log_user('jsmith', 'jsmith')
+
+    post "/issues/#{@issue.id}/extensions",
+         :params => {:issue_extension => {:new_due_date => (due + 10).to_s, :reason => 'Chờ vật tư'}}
+    assert_redirected_to "/issues/#{@issue.id}"
+    assert_equal due, @issue.reload.due_date, 'requesting must not move the deadline'
+
+    extension = IssueExtension.order(:id).last
+    post "/issues/#{@issue.id}/extensions/#{extension.id}/approve"
+    assert_redirected_to "/issues/#{@issue.id}"
+    assert_equal due, @issue.reload.due_date, 'one of two signatures is not enough'
+
+    # The second step belongs to user 3, a Developer on this project.
+    Role.find(2).add_permission!(:extend_issue_due_date)
+    post '/logout'
+    log_user('dlopper', 'foo')
+    post "/issues/#{@issue.id}/extensions/#{extension.id}/approve"
+    assert_redirected_to "/issues/#{@issue.id}"
+
+    assert extension.reload.approved?
+    assert_equal due + 10, @issue.reload.due_date
+  end
+
+  def test_bell_drops_the_extension_once_it_is_decided
+    build_extension_route(:approvers => [{:approver_user_id => 2}])
+    extension = create_pending_extension
+    log_user('jsmith', 'jsmith')
+
+    get '/'
+    assert_select '#approval-bell .approval-bell-extensions .approval-bell-item', 1
+
+    post "/issues/#{@issue.id}/extensions/#{extension.id}/reject"
+
+    get '/'
+    assert_response :success
+    assert_select '#approval-bell .approval-bell-extensions', 0
+    assert_select '#approval-bell .approval-bell-empty'
+  end
+
   def test_signing_removes_the_issue_from_the_reminder
     build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
     log_user('jsmith', 'jsmith')
@@ -365,5 +532,19 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     WorkflowTransition.where(:tracker_id => @issue.tracker_id, :old_status_id => 2).delete_all
     get '/pending_approvals'
     assert_select "table.issues a[href='/issues/#{@issue.id}']", 0
+  end
+
+  private
+
+  def create_pending_extension(days: 10)
+    due = @issue.start_date + 30
+    @issue.update_columns(:due_date => due)
+    @issue.reload
+    IssueExtension.create!(:issue => @issue, :user_id => 2,
+                           :approval_route => ApprovalRoute.extension_for_issue(@issue),
+                           :status => IssueExtension::PENDING,
+                           :previous_due_date => due,
+                           :new_due_date => due + days,
+                           :reason => 'Chờ vật tư')
   end
 end

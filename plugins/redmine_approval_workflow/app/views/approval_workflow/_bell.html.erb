@@ -2,8 +2,9 @@
   # Rendered only from _layout_additions, which decides whether the bell is
   # shown at all.
   pending = User.current.pending_approval_issues
+  extensions = User.current.pending_extension_requests
   overdue = User.current.overdue_issues
-  total = pending.size + overdue.size
+  total = pending.size + extensions.size + overdue.size
 %>
 <div id="approval-bell" class="dropdown" data-controller="dropdown">
   <a href="#" class="dropdown-trigger approval-bell-trigger <%= 'has-items' if total > 0 %>"
@@ -49,6 +50,38 @@
                                                       :status => step&.issue_status&.name)} %>
                 <%= link_to l(:label_approval_with_comment),
                             new_issue_approval_path(issue, :decision => 'approve'),
+                            :class => 'approval-bell-detail' %>
+              </span>
+            </li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <% if extensions.any? %>
+      <div class="approval-bell-section approval-bell-extensions">
+        <h4><%= l(:label_pending_extension_plural) %> (<%= extensions.size %>)</h4>
+        <ul>
+          <% extensions.each do |extension| %>
+            <% issue = extension.issue %>
+            <li class="approval-bell-item">
+              <%= link_to "#{h issue.tracker.name} ##{issue.id}", issue_path(issue),
+                          :class => 'approval-bell-ref' %>
+              <span class="approval-bell-subject"><%= h issue.subject.truncate(60) %></span>
+              <span class="approval-bell-meta">
+                <%= h issue.project.name %>
+                &middot; <%= h extension.current_approval_step&.name %>
+                &middot; <%= extension.previous_due_date ? format_date(extension.previous_due_date) : l(:label_none) %>
+                &rarr; <%= format_date extension.new_due_date %>
+              </span>
+              <span class="approval-bell-actions">
+                <%= button_to extension.approval_action_label,
+                              approve_issue_issue_extension_path(issue, extension),
+                              :method => :post,
+                              :class => 'approval-bell-sign',
+                              :data => {:confirm => l(:text_confirm_extension_approve,
+                                                      :date => format_date(extension.new_due_date))} %>
+                <%= link_to l(:label_issue_extension), issue_path(issue),
                             :class => 'approval-bell-detail' %>
               </span>
             </li>

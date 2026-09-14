@@ -16,6 +16,15 @@
       <strong><%= l(:label_extension_limit) %>:</strong>
       <%= approval_max_extension_label %>
     </p>
+    <% if @extension.approval_route %>
+      <p>
+        <strong><%= l(:label_approval_route) %>:</strong>
+        <%= h @extension.approval_route.name %>
+      </p>
+      <%= render :partial => 'approval_workflow/extension_chain',
+                 :locals => {:extension => @extension} %>
+      <p class="info"><%= l(:text_extension_pending_hint) %></p>
+    <% end %>
 
     <p>
       <%= f.date_field :new_due_date, :required => true, :size => 10,

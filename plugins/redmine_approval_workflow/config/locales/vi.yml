@@ -3,6 +3,10 @@ vi:
   label_approval_route: "Lưu trình ký"
   label_approval_route_plural: "Lưu trình ký"
   label_approval_route_new: "Lưu trình ký mới"
+  label_route_kind: "Loại lưu trình"
+  label_route_kind_issue: "Duyệt công việc"
+  label_route_kind_extension: "Duyệt gia hạn"
+  text_route_kind_hint: "Lưu trình công việc ký chuyển trạng thái công việc. Lưu trình gia hạn dùng để duyệt đơn xin gia hạn và không đụng tới trạng thái công việc. Đã lưu rồi thì không đổi được loại."
   label_approval_step: "Bước ký"
   label_approval_step_plural: "Các bước ký"
   label_approval_step_done: "Đã ký"
@@ -41,6 +45,7 @@ vi:
   text_project_approval_routes_hint: "Lưu trình khai báo ở đây chỉ áp dụng cho dự án này."
   text_routes_moved_to_project_settings: "Lưu trình ký được khai báo trong Cài đặt của từng dự án, thẻ \"Lưu trình ký\"."
   text_approver_hint: "Chọn vai trò HOẶC một người cụ thể, không chọn cả hai. Để trống thì ai có quyền chuyển trạng thái đều ký được. Khi đã chỉ định, chỉ người đó thấy nút ký, thấy thông báo và nhận email."
+  text_extension_approver_hint: "Bước gia hạn không gắn với trạng thái nào nên không có luồng công việc để xét quyền ký. Mỗi bước bắt buộc phải chỉ định vai trò hoặc một người."
   text_button_label_hint: "Nhãn hiển thị trên nút thao tác của bước, ví dụ \"Trình ký\", \"Phê duyệt\". Để trống thì dùng \"Ký duyệt\"."
   label_pending_approval_plural: "Công việc chờ tôi ký"
   label_pending_approval_with_count: "Chờ ký (%{count})"
@@ -75,10 +80,26 @@ vi:
   label_extension_limit: "Giới hạn mỗi lần gia hạn"
   label_max_extension_days: "tối đa %{count} ngày mỗi lần"
   label_no_extension_limit: "không giới hạn"
+  label_extension_route_plural: "Lưu trình duyệt gia hạn"
+  label_extension_route_new: "Lưu trình gia hạn mới"
+  label_extension_request: "Đơn xin gia hạn"
+  label_extension_requested_by: "Người đề nghị"
+  label_extension_status_pending: "Chờ duyệt"
+  label_extension_status_approved: "Đã duyệt"
+  label_extension_status_rejected: "Đã từ chối"
+  label_pending_extension_plural: "Đơn gia hạn chờ tôi duyệt"
+  label_no_pending_extension: "Không có đơn gia hạn nào đang chờ bạn duyệt."
+  text_extension_route_hint: "Khi tracker có lưu trình gia hạn, đơn xin gia hạn phải ký đủ các bước và ngày hoàn thành chỉ đổi sau khi bước cuối duyệt. Không có lưu trình thì ngày hoàn thành đổi ngay khi đề nghị, như trước đây."
+  text_extension_pending_hint: "Ngày hoàn thành chỉ thay đổi sau khi bước cuối cùng duyệt."
+  text_confirm_extension_approve: "Duyệt gia hạn tới ngày %{date}?"
 
   button_extend_due_date: "Gia hạn"
+  button_approve_extension: "Duyệt gia hạn"
+  button_reject_extension: "Từ chối"
 
   notice_issue_extended: "Đã gia hạn tới ngày %{date}."
+  notice_issue_extension_requested: "Đã gửi đơn xin gia hạn, đang chờ duyệt."
+  notice_issue_extension_rejected: "Đơn xin gia hạn đã bị từ chối."
 
   text_extension_journal: "Gia hạn %{days} ngày, tới ngày %{date}"
   text_max_extension_days_hint: "Số ngày tối đa được cộng thêm trong một lần gia hạn. Nhập 0 để bỏ giới hạn."
@@ -96,6 +117,8 @@ vi:
   text_notify_on_pending_approval_hint: "Gửi cho những người có quyền ký bước đang chờ. Người vừa thao tác không nhận mail của chính mình. Hãy kiểm tra cấu hình email trước khi bật."
   mail_subject_approval_pending: "Tới lượt bạn ký duyệt"
   mail_body_approval_pending: "Công việc sau đang chờ bạn ký bước \"%{step}\":"
+  mail_subject_extension_pending: "Tới lượt bạn duyệt gia hạn"
+  mail_body_extension_pending: "Đơn xin gia hạn sau đang chờ bạn ký bước \"%{step}\":"
   text_approval_mail_footer: "Xem chi tiết công việc:"
   text_show_pending_approvals_hint: "Tắt nếu máy chủ yếu — mỗi lần tải trang sẽ bớt một lượt truy vấn."
 
@@ -110,6 +133,8 @@ vi:
           attributes:
             approver_user_id:
               only_one_approver_allowed: "chỉ được chọn vai trò hoặc một người, không chọn cả hai"
+            base:
+              extension_step_needs_approver: "Bước gia hạn phải chỉ định vai trò hoặc người ký."
         issue_extension:
           attributes:
             new_due_date:

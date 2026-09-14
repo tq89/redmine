@@ -20,6 +20,46 @@
 .issue-extensions .approval-hint { color: #666; font-size: 0.9em; }
 .issue-extensions table.issue-extension-list { margin-top: 8px; }
 
+/* An extension chain is drawn outside .approval-workflow -- in the extension
+   panel and on the request form -- so the step rules are repeated unscoped
+   rather than reaching for a shared ancestor that does not exist. */
+ol.extension-steps { list-style: none; margin: 0; padding: 0; }
+ol.extension-steps .approval-step {
+  padding: 6px 0 6px 4px;
+  border-left: 3px solid transparent;
+  margin-bottom: 2px;
+}
+ol.extension-steps .approval-step-done    { border-left-color: #9fcf9f; }
+ol.extension-steps .approval-step-current { border-left-color: #e5a000; background: rgba(229, 160, 0, 0.07); }
+ol.extension-steps .approval-step-pending { border-left-color: #ddd; opacity: 0.75; }
+ol.extension-steps .approval-step-name { font-weight: bold; margin-right: 4px; }
+ol.extension-steps .approval-step-signature { display: block; margin-left: 24px; color: #555; font-size: 0.9em; }
+ol.extension-steps .approval-step-comment { margin: 2px 0 0 0; color: #333; }
+ol.extension-steps .approval-rejected { color: #b00; font-weight: bold; }
+
+.extension-request {
+  border: 1px solid #e5a000;
+  border-left-width: 4px;
+  background: rgba(229, 160, 0, 0.05);
+  padding: 8px 12px;
+  margin: 8px 0;
+}
+.extension-request h4 { margin: 0 0 4px 0; }
+.extension-request .extension-request-meta { color: #666; font-size: 0.9em; margin: 0 0 6px 0; }
+.extension-request p.buttons { margin: 8px 0 0 0; }
+.extension-request p.buttons form { display: inline; margin-right: 6px; }
+
+.extension-status {
+  display: inline-block;
+  border-radius: 3px;
+  padding: 0 6px;
+  font-size: 0.85em;
+  font-weight: bold;
+}
+.extension-status-pending  { background: #fdf3d8; color: #7a5c00; border: 1px solid #d9c89a; }
+.extension-status-approved { background: #e6f2e6; color: #2a7f2a; border: 1px solid #9fcf9f; }
+.extension-status-rejected { background: #fbe6e6; color: #b00;    border: 1px solid #e0a0a0; }
+
 table.approval-step-form input[type=text] { width: 100%; }
 
 #top-menu a.pending-approvals-alert {

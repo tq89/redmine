@@ -41,3 +41,54 @@
 <% else %>
   <p class="nodata"><%= l(:label_no_pending_approval) %></p>
 <% end %>
+
+<h3><%= l(:label_pending_extension_plural) %></h3>
+
+<% if @extensions.any? %>
+  <table class="list issues">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th><%= l(:label_project) %></th>
+        <th><%= l(:field_subject) %></th>
+        <th><%= l(:label_approval_step) %></th>
+        <th><%= l(:label_extension_from_to) %></th>
+        <th><%= l(:label_extension_reason) %></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @extensions.each do |extension| %>
+        <% issue = extension.issue %>
+        <% step = extension.current_approval_step %>
+        <tr class="issue">
+          <td><%= link_to issue.id, issue_path(issue) %></td>
+          <td><%= link_to_project issue.project %></td>
+          <td><%= link_to issue.subject, issue_path(issue) %></td>
+          <td>
+            <%= h step&.name %>
+            <span class="approval-button-label">[<%= h(step&.action_label) %>]</span>
+          </td>
+          <td>
+            <%= extension.previous_due_date ? format_date(extension.previous_due_date) : l(:label_none) %>
+            &rarr; <strong><%= format_date extension.new_due_date %></strong>
+          </td>
+          <td><%= h extension.reason %></td>
+          <td class="buttons">
+            <%= button_to extension.approval_action_label,
+                          approve_issue_issue_extension_path(issue, extension),
+                          :method => :post,
+                          :data => {:confirm => l(:text_confirm_extension_approve,
+                                                  :date => format_date(extension.new_due_date))} %>
+            <%= button_to l(:button_reject_extension),
+                          reject_issue_issue_extension_path(issue, extension),
+                          :method => :post,
+                          :data => {:confirm => l(:text_are_you_sure)} %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p class="nodata"><%= l(:label_no_pending_extension) %></p>
+<% end %>

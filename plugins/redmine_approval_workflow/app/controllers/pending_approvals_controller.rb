@@ -8,6 +8,7 @@ class PendingApprovalsController < ApplicationController
 
   def index
     @issues = User.current.pending_approval_issues
+    @extensions = User.current.pending_extension_requests
     @capped = @issues.size >= RedmineApprovalWorkflow::PendingApprovals::CANDIDATE_LIMIT
   end
 end

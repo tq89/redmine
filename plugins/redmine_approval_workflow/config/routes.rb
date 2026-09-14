@@ -17,5 +17,10 @@ resources :issues, :only => [] do
       post :sync
     end
   end
-  resources :issue_extensions, :only => [:new, :create], :path => 'extensions'
+  resources :issue_extensions, :only => [:new, :create], :path => 'extensions' do
+    member do
+      post :approve
+      post :reject
+    end
+  end
 end

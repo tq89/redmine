@@ -1,0 +1,40 @@
+<p><%= l(:mail_body_extension_pending, :step => h(@step_name)) %></p>
+
+<table>
+  <tr>
+    <td><strong><%= l(:label_issue) %></strong></td>
+    <td><%= link_to "#{h @issue.tracker.name} ##{@issue.id}: #{h @issue.subject}", @issue_url %></td>
+  </tr>
+  <tr>
+    <td><strong><%= l(:label_project) %></strong></td>
+    <td><%= h @issue.project.name %></td>
+  </tr>
+  <tr>
+    <td><strong><%= l(:label_approval_step) %></strong></td>
+    <td><%= h @step_name %></td>
+  </tr>
+  <tr>
+    <td><strong><%= l(:label_extension_from_to) %></strong></td>
+    <td>
+      <%= @extension.previous_due_date ? format_date(@extension.previous_due_date) : l(:label_none) %>
+      &rarr; <strong><%= format_date(@extension.new_due_date) %></strong>
+    </td>
+  </tr>
+  <tr>
+    <td><strong><%= l(:label_extension_days) %></strong></td>
+    <td><%= @extension.days %></td>
+  </tr>
+  <tr>
+    <td><strong><%= l(:label_extension_requested_by) %></strong></td>
+    <td><%= h @extension.user.to_s %></td>
+  </tr>
+  <% if @extension.reason.present? %>
+    <tr>
+      <td><strong><%= l(:label_extension_reason) %></strong></td>
+      <td><%= h @extension.reason %></td>
+    </tr>
+  <% end %>
+</table>
+
+<hr />
+<p><%= l(:text_approval_mail_footer) %> <%= link_to @issue_url, @issue_url %></p>

@@ -83,6 +83,44 @@
       <span class="approval-hint">(<%= approval_max_extension_label %>)</span>
     </p>
 
+    <% issue.issue_extensions.select(&:pending?).each do |extension| %>
+      <div class="extension-request">
+        <h4>
+          <%= l(:label_extension_request) %>:
+          <%= extension.previous_due_date ? format_date(extension.previous_due_date) : l(:label_none) %>
+          &rarr; <strong><%= format_date extension.new_due_date %></strong>
+          <span class="<%= extension_status_css(extension) %>"><%= extension_status_label(extension) %></span>
+        </h4>
+        <p class="extension-request-meta">
+          <%= l(:label_extension_requested_by) %>: <%= link_to_user extension.user %>,
+          <%= format_time extension.created_at %>
+          <% if extension.reason.present? %>
+            &middot; <%= l(:label_extension_reason) %>: <%= h extension.reason %>
+          <% end %>
+        </p>
+
+        <%= render :partial => 'approval_workflow/extension_chain',
+                   :locals => {:extension => extension} %>
+
+        <p class="info"><%= l(:text_extension_pending_hint) %></p>
+
+        <% if extension.signable_by?(User.current) %>
+          <p class="buttons">
+            <%= button_to extension.approval_action_label,
+                          approve_issue_issue_extension_path(issue, extension),
+                          :method => :post,
+                          :class => 'button-positive',
+                          :data => {:confirm => l(:text_confirm_extension_approve,
+                                                  :date => format_date(extension.new_due_date))} %>
+            <%= button_to l(:button_reject_extension),
+                          reject_issue_issue_extension_path(issue, extension),
+                          :method => :post,
+                          :data => {:confirm => l(:text_are_you_sure)} %>
+          </p>
+        <% end %>
+      </div>
+    <% end %>
+
     <% if issue.issue_extensions.any? %>
       <table class="list issue-extension-list">
         <thead>
@@ -91,6 +129,7 @@
             <th><%= l(:label_user) %></th>
             <th><%= l(:label_extension_from_to) %></th>
             <th><%= l(:label_extension_days) %></th>
+            <th><%= l(:field_status) %></th>
             <th><%= l(:field_comments) %></th>
           </tr>
         </thead>
@@ -104,6 +143,7 @@
                 &rarr; <%= format_date extension.new_due_date %>
               </td>
               <td><%= extension.days %></td>
+              <td><span class="<%= extension_status_css(extension) %>"><%= extension_status_label(extension) %></span></td>
               <td><%= h extension.reason %></td>
             </tr>
           <% end %>

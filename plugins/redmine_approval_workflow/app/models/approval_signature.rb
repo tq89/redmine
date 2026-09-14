@@ -9,6 +9,7 @@ class ApprovalSignature < ApplicationRecord
   ACTIONS = [APPROVED, REJECTED].freeze
 
   belongs_to :issue
+  belongs_to :issue_extension, :optional => true
   belongs_to :approval_route
   belongs_to :approval_route_step, :optional => true
   belongs_to :user
@@ -20,6 +21,14 @@ class ApprovalSignature < ApplicationRecord
   validates :issue_id, :approval_route_id, :user_id, :presence => true
 
   scope :sorted, lambda {order(:id)}
+  # Signatures on the issue's own chain. An extension request keeps its
+  # signatures in the same table and carries the issue_id for context, so the
+  # issue chain has to say explicitly that it does not want them.
+  scope :on_issue_chain, lambda {where(:issue_extension_id => nil)}
+
+  def for_extension?
+    issue_extension_id.present?
+  end
 
   def approved?
     action == APPROVED

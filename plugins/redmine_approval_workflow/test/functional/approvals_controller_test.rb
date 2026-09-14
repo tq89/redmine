@@ -98,6 +98,37 @@ class ApprovalsControllerTest < Redmine::ControllerTest
     assert_equal 0, @issue.approval_position
   end
 
+  # "Khi duyệt đơn không tự thêm bình luận": signing records the status change
+  # in the journal and writes nothing into the notes. Anything in the notes has
+  # to have been typed by the signer.
+  def test_approving_writes_no_generated_note
+    @request.session[:user_id] = 2
+
+    post :create, :params => {:issue_id => @issue.id, :decision => 'approve'}
+
+    journal = Journal.order(:id).last
+    assert journal.notes.blank?, "expected no generated note, got #{journal.notes.inspect}"
+    assert journal.details.any? {|detail| detail.prop_key == 'status_id'},
+           'the status change must still be journalled'
+  end
+
+  def test_rejecting_writes_no_generated_note
+    @request.session[:user_id] = 2
+
+    post :create, :params => {:issue_id => @issue.id, :decision => 'reject'}
+
+    assert Journal.order(:id).last.notes.blank?
+  end
+
+  def test_a_typed_comment_is_kept_as_the_note
+    @request.session[:user_id] = 2
+
+    post :create, :params => {:issue_id => @issue.id, :decision => 'approve',
+                              :comments => 'Đồng ý'}
+
+    assert_equal 'Đồng ý', Journal.order(:id).last.notes
+  end
+
   def test_new_renders_the_signing_form
     @request.session[:user_id] = 2
 

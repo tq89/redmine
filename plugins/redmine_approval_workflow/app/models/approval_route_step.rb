@@ -8,12 +8,14 @@
 # never sign, whatever is configured here.
 class ApprovalRouteStep < ApplicationRecord
   belongs_to :approval_route, :inverse_of => :steps
-  belongs_to :issue_status
+  belongs_to :issue_status, :optional => true
   belongs_to :approver_role, :class_name => 'Role', :optional => true
   belongs_to :approver_user, :class_name => 'User', :optional => true
 
   validates :name, :presence => true, :length => {:maximum => 255}
-  validates :issue_status_id, :presence => true
+  # An extension step names its approver rather than a status to move into.
+  validates :issue_status_id, :presence => true, :unless => :extension_step?
+  validate :validate_extension_approver
   validates :button_label, :length => {:maximum => 255}
   validates :position, :numericality => {:only_integer => true, :greater_than_or_equal_to => 0}
   validate :validate_single_approver
@@ -41,7 +43,20 @@ class ApprovalRouteStep < ApplicationRecord
     name.to_s
   end
 
+  def extension_step?
+    approval_route&.extension?
+  end
+
   private
+
+  # Without a workflow transition behind it, the named approver is the only
+  # thing deciding who may sign an extension step.
+  def validate_extension_approver
+    return unless extension_step?
+    return if approver_role_id.present? || approver_user_id.present?
+
+    errors.add(:base, :extension_step_needs_approver)
+  end
 
   def validate_single_approver
     return unless approver_role_id.present? && approver_user_id.present?

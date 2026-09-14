@@ -16,8 +16,10 @@ class ApprovalRoute < ApplicationRecord
            :dependent => :nullify,
            :inverse_of => :approval_route
 
+  # An extension step has no status, so a blank one cannot be the test for an
+  # empty row; a row with no name at all is the empty one.
   accepts_nested_attributes_for :steps, :allow_destroy => true,
-                                :reject_if => proc {|attrs| attrs['issue_status_id'].blank?}
+                                :reject_if => proc {|attrs| attrs['name'].blank?}
 
   # Redmine leaves belongs_to_required_by_default unset, so a belongs_to is
   # optional here regardless of the Rails 5+ default. These presence rules are
@@ -25,17 +27,34 @@ class ApprovalRoute < ApplicationRecord
   validates :name, :presence => true, :length => {:maximum => 255}
   validates :tracker_id, :presence => true
 
+  ISSUE_KIND = 'issue'
+  EXTENSION_KIND = 'extension'
+  KINDS = [ISSUE_KIND, EXTENSION_KIND].freeze
+
+  validates :kind, :inclusion => {:in => KINDS}
+
   scope :active, lambda {where(:active => true)}
   scope :sorted, lambda {order(:name, :id)}
+  scope :of_kind, lambda {|kind| where(:kind => kind)}
 
-  # Returns the route that governs +issue+, or nil.
+  def extension?
+    kind == EXTENSION_KIND
+  end
+
+  # The chain that governs extension requests on +issue+, or nil.
+  def self.extension_for_issue(issue)
+    for_issue(issue, EXTENSION_KIND)
+  end
+
+  # Returns the route of +kind+ that governs +issue+, or nil.
   #
   # A route bound to the issue's project wins over a global one for the same
   # tracker, so a project can override the organisation-wide chain.
-  def self.for_issue(issue)
+  def self.for_issue(issue, kind = ISSUE_KIND)
     return nil if issue.nil? || issue.tracker_id.nil?
 
     active.
+      of_kind(kind).
       where(:tracker_id => issue.tracker_id).
       where(:project_id => [nil, issue.project_id]).
       order(Arel.sql('CASE WHEN project_id IS NULL THEN 1 ELSE 0 END'), :id).

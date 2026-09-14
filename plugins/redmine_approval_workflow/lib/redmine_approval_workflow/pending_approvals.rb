@@ -30,7 +30,10 @@ module RedmineApprovalWorkflow
       return [] unless user.is_a?(User) && user.logged?
       return [] unless enabled?
 
-      routes = ApprovalRoute.active.preload(:steps => :issue_status).to_a
+      # Issue chains only. An extension chain has no target status and is not
+      # signed from here; ExtensionApproval.pending_for handles those.
+      routes = ApprovalRoute.active.of_kind(ApprovalRoute::ISSUE_KIND).
+               preload(:steps => :issue_status).to_a
       return [] if routes.empty?
 
       # Resolved once and passed down: it costs a query and both the

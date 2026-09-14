@@ -21,7 +21,13 @@ module RedmineApprovalWorkflow
 
     def self.included(base)
       base.class_eval do
-        has_many :approval_signatures, lambda {order(:id)}, :dependent => :destroy
+        # Scoped to the issue's own chain: an extension request's signatures
+        # live in the same table and carry this issue_id, and counting them
+        # here would advance the issue chain by somebody approving a deadline.
+        # They are destroyed through issue_extensions, which owns them.
+        has_many :approval_signatures,
+                 lambda {where(:issue_extension_id => nil).order(:id)},
+                 :dependent => :destroy
         has_many :issue_extensions, lambda {order(:id)}, :dependent => :destroy
 
         # A new issue on a routed tracker puts step 0 in front of somebody
@@ -153,8 +159,10 @@ module RedmineApprovalWorkflow
       expected.present? && expected != status_id
     end
 
+    # Counts towards the per-issue limit. A rejected request is not an
+    # extension the issue got, so it does not use the allowance up.
     def extension_count
-      issue_extensions.size
+      issue_extensions.count {|extension| !extension.rejected?}
     end
 
     def extendable_by?(user = User.current)
