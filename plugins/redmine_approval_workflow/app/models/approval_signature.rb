@@ -11,6 +11,9 @@ class ApprovalSignature < ApplicationRecord
   belongs_to :issue
   belongs_to :issue_extension, :optional => true
   belongs_to :approval_route
+  # Which slot of a multi-approver step this filled. Null on rows that predate
+  # approver lists, and on anything reconciled from the status history.
+  belongs_to :approval_route_approver, :optional => true
   belongs_to :approval_route_step, :optional => true
   belongs_to :user
   belongs_to :from_status, :class_name => 'IssueStatus', :optional => true

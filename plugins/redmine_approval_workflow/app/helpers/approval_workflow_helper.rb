@@ -69,7 +69,7 @@ module ApprovalWorkflowHelper
   # enforce afterwards.
   def approval_approver_options(project)
     [
-      [l(:label_approver_dynamic), ApprovalRouteStep::DYNAMIC_APPROVERS.map do |kind|
+      [l(:label_approver_dynamic), ApprovalRouteApprover::DYNAMIC_APPROVERS.map do |kind|
         [l(:"label_approver_#{kind}"), "dynamic:#{kind}"]
       end],
       [l(:label_role_plural), approval_role_options.map {|name, id| [name, "role:#{id}"]}],
@@ -77,16 +77,26 @@ module ApprovalWorkflowHelper
     ]
   end
 
-  # How a step's approver reads wherever a chain is shown. nil when the step
-  # leaves it to the workflow.
+  def approval_tracker_options(project)
+    project.trackers.sorted.map {|tracker| [tracker.name, tracker.id.to_s]}
+  end
+
+  # Flat value => label lookup over a plain or grouped option list, so a chip
+  # can be labelled without asking the database again.
+  def approval_option_labels(choices)
+    choices.
+      flat_map {|entry| entry[1].is_a?(Array) ? entry[1] : [entry]}.
+      to_h {|label, value| [value.to_s, label]}
+  end
+
+  # How a step's approver list reads wherever a chain is shown. nil when the
+  # step leaves it to the workflow.
   def approval_step_approver_label(step)
-    if step.approver_user
-      "#{l(:label_assigned_person)}: #{step.approver_user.name}"
-    elsif step.approver_role
-      "#{l(:label_assigned_role)}: #{step.approver_role.name}"
-    elsif step.approver_dynamic.present?
-      l(:"label_approver_#{step.approver_dynamic}")
-    end
+    approvers = step.ordered_approvers
+    return nil if approvers.empty?
+
+    joiner = step.all_mode? ? " #{l(:label_approval_mode_join_all)} " : " #{l(:label_approval_mode_join_any)} "
+    approvers.map(&:label).join(joiner)
   end
 
   def approval_member_options(project)

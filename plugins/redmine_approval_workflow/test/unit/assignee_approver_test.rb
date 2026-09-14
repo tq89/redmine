@@ -18,7 +18,7 @@ class AssigneeApproverTest < ActiveSupport::TestCase
     EnabledModule.create!(:project_id => @issue.project_id, :name => 'approval_workflow')
     @route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
     @step = @route.step_at(0)
-    @step.update!(:approver_dynamic => ApprovalRouteStep::ASSIGNEE)
+    @step.update!(:approver_tokens => ['dynamic:assignee'])
   end
 
   # --- the assignment itself ------------------------------------------------
@@ -26,8 +26,8 @@ class AssigneeApproverTest < ActiveSupport::TestCase
   def test_matches_the_user_the_issue_is_assigned_to
     @issue.update_columns(:assigned_to_id => 2)
 
-    assert @step.assigned_to?(User.find(2), @issue.reload)
-    assert_not @step.assigned_to?(User.find(3), @issue)
+    assert @step.signable_by?(User.find(2), @issue.reload, [])
+    assert_not @step.signable_by?(User.find(3), @issue, [])
   end
 
   def test_matches_a_member_of_the_group_the_issue_is_assigned_to
@@ -36,24 +36,24 @@ class AssigneeApproverTest < ActiveSupport::TestCase
     group.users << user unless group.users.include?(user)
     @issue.update_columns(:assigned_to_id => group.id)
 
-    assert @step.assigned_to?(user.reload, @issue.reload)
-    assert_not @step.assigned_to?(User.find(3), @issue)
+    assert @step.signable_by?(user.reload, @issue.reload, [])
+    assert_not @step.signable_by?(User.find(3), @issue, [])
   end
 
   def test_matches_nobody_when_the_issue_is_unassigned
     @issue.update_columns(:assigned_to_id => nil)
 
-    assert_not @step.assigned_to?(User.find(2), @issue.reload)
-    assert_not @step.assigned_to?(User.find(3), @issue)
+    assert_not @step.signable_by?(User.find(2), @issue.reload, [])
+    assert_not @step.signable_by?(User.find(3), @issue, [])
   end
 
   def test_it_follows_the_issue_when_the_assignee_changes
     @issue.update_columns(:assigned_to_id => 2)
-    assert @step.assigned_to?(User.find(2), @issue.reload)
+    assert @step.signable_by?(User.find(2), @issue.reload, [])
 
     @issue.update_columns(:assigned_to_id => 3)
-    assert_not @step.assigned_to?(User.find(2), @issue.reload)
-    assert @step.assigned_to?(User.find(3), @issue)
+    assert_not @step.signable_by?(User.find(2), @issue.reload, [])
+    assert @step.signable_by?(User.find(3), @issue, [])
   end
 
   # --- it narrows, it never widens ------------------------------------------
@@ -65,7 +65,7 @@ class AssigneeApproverTest < ActiveSupport::TestCase
                              :old_status_id => 1, :new_status_id => 2).delete_all
 
     issue = Issue.find(@issue.id)
-    assert issue.current_approval_step.assigned_to?(User.find(3), issue),
+    assert issue.current_approval_step.signable_by?(User.find(3), issue, []),
            'the assignment matches'
     assert_not issue.can_approve?(User.find(3)),
                'but the workflow does not allow the move, so signing is still refused'
@@ -97,55 +97,57 @@ class AssigneeApproverTest < ActiveSupport::TestCase
                         @issue.id
   end
 
-  # --- the single approver field --------------------------------------------
+  # --- the approver entry ---------------------------------------------------
 
   def test_approver_token_round_trips
-    step = ApprovalRouteStep.new
+    approver = ApprovalRouteApprover.new
 
-    step.approver_token = 'dynamic:assignee'
-    assert_equal ApprovalRouteStep::ASSIGNEE, step.approver_dynamic
-    assert_equal 'dynamic:assignee', step.approver_token
+    approver.token = 'dynamic:assignee'
+    assert_equal ApprovalRouteApprover::ASSIGNEE, approver.approver_dynamic
+    assert_equal 'dynamic:assignee', approver.token
 
-    step.approver_token = 'role:2'
-    assert_equal 2, step.approver_role_id
-    assert_nil step.approver_dynamic, 'setting one kind must clear the others'
-    assert_equal 'role:2', step.approver_token
+    approver.token = 'role:2'
+    assert_equal 2, approver.approver_role_id
+    assert_nil approver.approver_dynamic, 'setting one kind must clear the others'
+    assert_equal 'role:2', approver.token
 
-    step.approver_token = 'user:3'
-    assert_equal 3, step.approver_user_id
-    assert_nil step.approver_role_id
-    assert_equal 'user:3', step.approver_token
+    approver.token = 'user:3'
+    assert_equal 3, approver.approver_user_id
+    assert_nil approver.approver_role_id
+    assert_equal 'user:3', approver.token
 
-    step.approver_token = ''
-    assert_nil step.approver_user_id
-    assert_equal '', step.approver_token
-    assert_not step.assigned?
+    approver.token = ''
+    assert_nil approver.approver_user_id
+    assert_equal '', approver.token
+    assert_not approver.set?
   end
 
-  def test_only_one_approver_may_be_set_at_a_time
-    step = @route.step_at(1)
-    step.approver_role_id = 1
-    step.approver_dynamic = ApprovalRouteStep::ASSIGNEE
+  def test_an_entry_must_name_exactly_one_kind_of_approver
+    approver = ApprovalRouteApprover.new(:approval_route_step => @step, :position => 0)
+    assert_not approver.valid?
+    assert approver.errors.added?(:base, :approver_missing)
 
-    assert_not step.valid?
-    assert_includes step.errors.attribute_names, :approver_user_id
+    approver.approver_role_id = 1
+    approver.approver_dynamic = ApprovalRouteApprover::ASSIGNEE
+    assert_not approver.valid?
+    assert approver.errors.added?(:base, :approver_ambiguous)
   end
 
   def test_an_unknown_dynamic_approver_is_rejected
-    step = @route.step_at(1)
-    step.approver_dynamic = 'whoever'
+    approver = ApprovalRouteApprover.new(:approval_route_step => @step, :position => 0,
+                                         :approver_dynamic => 'whoever')
 
-    assert_not step.valid?
-    assert_includes step.errors.attribute_names, :approver_dynamic
+    assert_not approver.valid?
+    assert_includes approver.errors.attribute_names, :approver_dynamic
   end
 
   # --- extension chains -----------------------------------------------------
 
   def test_an_extension_step_may_name_the_assignee
-    route = ApprovalRoute.create!(:name => 'GH', :tracker_id => 1,
+    route = ApprovalRoute.create!(:name => 'GH', :tracker_ids => [1],
                                   :kind => ApprovalRoute::EXTENSION_KIND)
     step = route.steps.build(:name => 'Người thực hiện duyệt', :position => 0,
-                             :approver_dynamic => ApprovalRouteStep::ASSIGNEE)
+                             :approver_tokens => ['dynamic:assignee'])
 
     assert step.valid?, step.errors.full_messages.join(', ')
   end

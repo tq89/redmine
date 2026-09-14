@@ -60,7 +60,7 @@ class ApprovalMailerTest < ActiveSupport::TestCase
   end
 
   def test_only_mails_the_named_person_when_the_step_assigns_one
-    @route.step_at(0).update!(:approver_user_id => 2)
+    @route.step_at(0).update!(:approver_tokens => ['user:2'])
 
     deliver
 
@@ -68,7 +68,7 @@ class ApprovalMailerTest < ActiveSupport::TestCase
   end
 
   def test_only_mails_the_named_role_when_the_step_assigns_one
-    @route.step_at(0).update!(:approver_role_id => 1)
+    @route.step_at(0).update!(:approver_tokens => ['role:1'])
 
     deliver
 
@@ -82,7 +82,7 @@ class ApprovalMailerTest < ActiveSupport::TestCase
   end
 
   def test_sends_nothing_when_the_named_person_cannot_make_the_transition
-    @route.step_at(0).update!(:approver_user_id => 2)
+    @route.step_at(0).update!(:approver_tokens => ['user:2'])
     WorkflowTransition.where(:tracker_id => @issue.tracker_id, :old_status_id => 1,
                              :new_status_id => 2).delete_all
 
@@ -123,7 +123,7 @@ class ApprovalMailerTest < ActiveSupport::TestCase
   # Mailer#mail builds the From display name and the Sender header from @author,
   # which only works if it is set on the mailer instance.
   def test_mail_is_attributed_to_whoever_triggered_it
-    @route.step_at(0).update!(:approver_user_id => 3)
+    @route.step_at(0).update!(:approver_tokens => ['user:3'])
     actor = User.find(2)
 
     ApprovalMailer.deliver_approval_pending(@issue.reload, actor)
@@ -148,7 +148,7 @@ class ApprovalMailerTest < ActiveSupport::TestCase
 
   # --- extension chains -----------------------------------------------------
 
-  def build_pending_extension(approvers: [{:approver_user_id => 2}, {:approver_user_id => 3}])
+  def build_pending_extension(approvers: ['user:2', 'user:3'])
     IssueExtension.delete_all
     Role.find(1).add_permission!(:extend_issue_due_date)
     Role.find(2).add_permission!(:extend_issue_due_date)
@@ -203,7 +203,7 @@ class ApprovalMailerTest < ActiveSupport::TestCase
   end
 
   def test_no_extension_mail_once_the_request_is_decided
-    extension = build_pending_extension(:approvers => [{:approver_user_id => 2}])
+    extension = build_pending_extension(:approvers => ['user:2'])
 
     RedmineApprovalWorkflow::ExtensionApproval.decide(extension, User.find(2), :approve => true)
 

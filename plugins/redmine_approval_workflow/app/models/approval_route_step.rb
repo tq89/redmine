@@ -3,69 +3,126 @@
 # One step of an approval chain. Approving it moves the issue into
 # +issue_status+, which is also what decides who is allowed to sign it.
 #
-# A step may additionally name the approver: a role, one person, or a role the
-# issue itself fills in -- currently "whoever the issue is assigned to". That
-# only ever *narrows* the workflow: someone the transition does not allow can
-# never sign, whatever is configured here.
+# A step carries an ordered list of approvers and a mode saying what "signed"
+# means for it:
+#
+#   any (OR)  -- one signature from anybody on the list finishes the step; the
+#                order is only the order they are listed in.
+#   all (AND) -- everybody on the list has to sign, and in the listed order:
+#                only the next one who has not signed yet may do so.
+#
+# An empty list means the step follows the workflow alone: anybody the
+# transition allows may sign it. A list never widens that -- somebody the
+# workflow denies can never sign, whatever is configured here.
 class ApprovalRouteStep < ApplicationRecord
-  # Approvers the issue decides rather than the configuration.
-  ASSIGNEE = 'assignee'
-  DYNAMIC_APPROVERS = [ASSIGNEE].freeze
+  ANY_MODE = 'any'
+  ALL_MODE = 'all'
+  MODES = [ANY_MODE, ALL_MODE].freeze
 
   belongs_to :approval_route, :inverse_of => :steps
   belongs_to :issue_status, :optional => true
-  belongs_to :approver_role, :class_name => 'Role', :optional => true
-  belongs_to :approver_user, :class_name => 'User', :optional => true
+
+  has_many :approvers, lambda {order(:position, :id)},
+           :class_name => 'ApprovalRouteApprover',
+           :dependent => :destroy,
+           :autosave => true,
+           :inverse_of => :approval_route_step
 
   validates :name, :presence => true, :length => {:maximum => 255}
-  # An extension step names its approver rather than a status to move into.
+  # An extension step names its approvers rather than a status to move into.
   validates :issue_status_id, :presence => true, :unless => :extension_step?
   validate :validate_extension_approver
   validates :button_label, :length => {:maximum => 255}
-  validates :approver_dynamic, :inclusion => {:in => DYNAMIC_APPROVERS},
-            :allow_blank => true
+  validates :approval_mode, :inclusion => {:in => MODES}
   validates :position, :numericality => {:only_integer => true, :greater_than_or_equal_to => 0}
-  validate :validate_single_approver
 
   # Wording of the action button for this step.
   def action_label
     button_label.presence || ::I18n.t(:button_approve)
   end
 
+  def any_mode?
+    approval_mode != ALL_MODE
+  end
+
+  def all_mode?
+    approval_mode == ALL_MODE
+  end
+
+  # In form order, with rows the form dropped left out.
+  def ordered_approvers
+    approvers.reject(&:marked_for_destruction?).sort_by {|a| [a.position.to_i, a.id.to_i]}
+  end
+
   def assigned?
-    approver_role_id.present? || approver_user_id.present? || approver_dynamic.present?
+    ordered_approvers.any?
   end
 
-  # True when +user+ matches the step's assignment. Callers still have to check
-  # the workflow transition separately; this only answers "is this their step".
-  #
-  # +issue+ rather than a project, because a dynamic approver is read off the
-  # issue -- there is nothing in the configuration to compare against.
-  def assigned_to?(user, issue)
+  # The approver list as one ordered list of tokens, which is how the form
+  # posts it: a row of chips whose order is the order of the inputs.
+  def approver_tokens
+    return @approver_tokens if @approver_tokens
+
+    ordered_approvers.map(&:token)
+  end
+
+  def approver_tokens=(values)
+    @approver_tokens = Array(values).map(&:to_s).reject(&:blank?).uniq
+    rebuild_approvers
+  end
+
+  # True when +user+ appears anywhere on the list. Used for showing who a step
+  # belongs to, not for deciding whether they may sign it now.
+  def matches_any_approver?(user, issue)
     return true unless assigned?
-    return false unless user.is_a?(User) && user.logged?
-    return user.id == approver_user_id if approver_user_id.present?
-    return matches_dynamic?(user, issue) if approver_dynamic.present?
 
-    user.roles_for_project(issue.project).any? {|role| role.id == approver_role_id}
+    ordered_approvers.any? {|approver| approver.matches?(user, issue)}
   end
 
-  # The approver as one value, for a single form field. Keeping the columns
-  # separate underneath means an assignment stays a real foreign key.
-  def approver_token
-    return "user:#{approver_user_id}" if approver_user_id.present?
-    return "role:#{approver_role_id}" if approver_role_id.present?
-    return "dynamic:#{approver_dynamic}" if approver_dynamic.present?
+  # The approvers who may sign right now, given what has been signed already:
+  # everybody in "any" mode, only the next one in "all" mode.
+  #
+  # +signatures+ is required rather than defaulted: an "all" step answers a
+  # different question with an empty list, and a caller that forgot to pass
+  # what the step has collected would get a confidently wrong answer.
+  def open_approvers(signatures)
+    return [] unless assigned?
+    return ordered_approvers if any_mode?
 
-    ''
+    Array(next_approver(signatures))
   end
 
-  # Setting one kind of approver clears the others: a step has exactly one.
-  def approver_token=(value)
-    kind, id = value.to_s.split(':', 2)
-    self.approver_user_id = kind == 'user' ? id.presence : nil
-    self.approver_role_id = kind == 'role' ? id.presence : nil
-    self.approver_dynamic = kind == 'dynamic' ? id.presence : nil
+  # The first entry on the list that has not signed yet.
+  def next_approver(signatures)
+    signed = Array(signatures).select(&:approved?).filter_map(&:approval_route_approver_id)
+    ordered_approvers.detect {|approver| !signed.include?(approver.id)}
+  end
+
+  # Authoritative "may this user sign this step now". The caller still has to
+  # check the workflow transition separately.
+  def signable_by?(user, issue, signatures)
+    return true unless assigned?
+
+    open_approvers(signatures).any? {|approver| approver.matches?(user, issue)}
+  end
+
+  # Which slot +user+ is filling, so the signature can record it.
+  def approver_for(user, issue, signatures)
+    open_approvers(signatures).detect {|approver| approver.matches?(user, issue)}
+  end
+
+  # Has this step collected everything it needs?
+  def satisfied_by?(signatures)
+    approved = Array(signatures).select(&:approved?)
+    return false if approved.empty?
+    # A step filled in from the issue's status history counts as passed whole:
+    # the history records that the issue moved, not who filled which slot.
+    return true if approved.any?(&:derived?)
+    return true unless assigned?
+    return true if any_mode?
+
+    signed = approved.filter_map(&:approval_route_approver_id)
+    ordered_approvers.all? {|approver| signed.include?(approver.id)}
   end
 
   def to_s
@@ -78,31 +135,27 @@ class ApprovalRouteStep < ApplicationRecord
 
   private
 
-  # A group in the assigned-to field stands for its members, the same way
-  # Redmine treats an issue assigned to a group everywhere else.
-  def matches_dynamic?(user, issue)
-    case approver_dynamic
-    when ASSIGNEE
-      issue.assigned_to_id.present? &&
-        (user.id == issue.assigned_to_id || user.group_ids.include?(issue.assigned_to_id))
-    else
-      false
+  # Rebuilds the list from the posted tokens, keeping rows that are still
+  # there so their id -- and therefore the signatures pointing at it -- survive
+  # a reorder.
+  def rebuild_approvers
+    kept = []
+    @approver_tokens.each_with_index do |token, index|
+      approver = approvers.detect {|a| a.token == token && !kept.include?(a)}
+      approver ||= approvers.build
+      approver.token = token
+      approver.position = index
+      kept << approver
     end
+    (approvers.to_a - kept).each(&:mark_for_destruction)
   end
 
-  # Without a workflow transition behind it, the named approver is the only
+  # Without a workflow transition behind it, the approver list is the only
   # thing deciding who may sign an extension step.
   def validate_extension_approver
     return unless extension_step?
     return if assigned?
 
     errors.add(:base, :extension_step_needs_approver)
-  end
-
-  def validate_single_approver
-    chosen = [approver_role_id, approver_user_id, approver_dynamic].count(&:present?)
-    return if chosen <= 1
-
-    errors.add(:approver_user_id, :only_one_approver_allowed)
   end
 end

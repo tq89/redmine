@@ -113,23 +113,31 @@ class IssueApprovalTest < ActiveSupport::TestCase
     manager = User.find(2)
     assert @issue.can_approve?(manager)
 
-    @route.step_at(0).update!(:approver_user_id => 3)
+    @route.step_at(0).update!(:approver_tokens => ['user:3'])
     assert_not @issue.reload.can_approve?(manager)
   end
 
   def test_rejecting_is_held_by_the_same_person_as_signing
-    @route.step_at(0).update!(:approver_user_id => 3)
+    @route.step_at(0).update!(:approver_tokens => ['user:3'])
 
     assert_not @issue.reload.can_reject_approval?(User.find(2))
   end
 
-  def test_a_step_cannot_name_both_a_role_and_a_person
-    step = @route.step_at(0)
-    step.approver_role_id = 1
-    step.approver_user_id = 2
+  def test_an_approver_entry_cannot_be_both_a_role_and_a_person
+    approver = ApprovalRouteApprover.new(:approval_route_step => @route.step_at(0),
+                                         :position => 0,
+                                         :approver_role_id => 1,
+                                         :approver_user_id => 2)
 
-    assert_not step.valid?
-    assert_includes step.errors.attribute_names, :approver_user_id
+    assert_not approver.valid?
+    assert approver.errors.added?(:base, :approver_ambiguous)
+  end
+
+  def test_a_step_can_list_several_approvers_in_order
+    step = set_step_approvers(@route.step_at(0), ['role:1', 'user:3'])
+
+    assert_equal ['role:1', 'user:3'], step.approver_tokens
+    assert_equal [0, 1], step.ordered_approvers.map(&:position)
   end
 
   def test_no_route_means_no_approval

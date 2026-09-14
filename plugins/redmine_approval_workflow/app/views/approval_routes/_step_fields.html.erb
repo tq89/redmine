@@ -3,9 +3,9 @@
   # the "add step" button clones, so both always carry the same fields.
   sf = local_assigns[:sf]
 %>
-<tr>
+<tr class="approval-step-row">
   <td><%= sf.number_field :position, :size => 3, :min => 0 %></td>
-  <td><%= sf.text_field :name, :size => 30 %></td>
+  <td><%= sf.text_field :name, :size => 24 %></td>
   <% if @route.extension? %>
     <%= sf.hidden_field :issue_status_id, :value => '' %>
   <% else %>
@@ -14,14 +14,19 @@
                     [[l(:label_none), '']] + IssueStatus.sorted.map {|s| [s.name, s.id]} %>
     </td>
   <% end %>
-  <td>
-    <%= sf.select :approver_token,
-                  grouped_options_for_select(approval_approver_options(@project),
-                                             sf.object.approver_token),
-                  {:include_blank => l(:label_approver_anyone)},
-                  :class => 'approver-token' %>
+  <td class="approval-step-approvers">
+    <%= render :partial => 'approval_routes/chip_picker',
+               :locals => {:name => "#{sf.object_name}[approver_tokens][]",
+                           :choices => approval_approver_options(@project),
+                           :selected => sf.object.approver_tokens} %>
   </td>
-  <td><%= sf.text_field :button_label, :size => 16,
+  <td>
+    <%= sf.select :approval_mode,
+                  [[l(:label_approval_mode_any), ApprovalRouteStep::ANY_MODE],
+                   [l(:label_approval_mode_all), ApprovalRouteStep::ALL_MODE]],
+                  {}, :class => 'approval-mode' %>
+  </td>
+  <td><%= sf.text_field :button_label, :size => 14,
                         :placeholder => l(:button_approve) %></td>
   <td><%= sf.check_box :_destroy unless sf.object.new_record? %></td>
 </tr>

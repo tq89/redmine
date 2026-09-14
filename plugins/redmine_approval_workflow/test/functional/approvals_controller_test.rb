@@ -129,6 +129,109 @@ class ApprovalsControllerTest < Redmine::ControllerTest
     assert_equal 'Đồng ý', Journal.order(:id).last.notes
   end
 
+  # --- approver lists -------------------------------------------------------
+
+  # The buttons were already hidden from somebody off the list; the endpoint
+  # was not, so a user holding the transition could sign another person's step
+  # by posting here.
+  def test_signing_a_step_listed_to_somebody_else_is_refused
+    set_step_approvers(@route.step_at(0), ['user:3'])
+    @request.session[:user_id] = 2
+
+    assert_no_difference 'ApprovalSignature.count' do
+      post :create, :params => {:issue_id => @issue.id, :decision => 'approve'}
+    end
+
+    assert_response :forbidden
+    assert_equal 1, @issue.reload.status_id
+  end
+
+  def test_any_mode_is_finished_by_one_signature_from_the_list
+    set_step_approvers(@route.step_at(0), ['user:2', 'user:3'],
+                       :mode => ApprovalRouteStep::ANY_MODE)
+    @request.session[:user_id] = 2
+
+    post :create, :params => {:issue_id => @issue.id, :decision => 'approve'}
+
+    assert_redirected_to "/issues/#{@issue.id}"
+    assert_equal 2, @issue.reload.status_id
+    assert_equal 1, @issue.approval_position
+  end
+
+  def test_all_mode_records_the_first_signature_without_moving_the_issue
+    set_step_approvers(@route.step_at(0), ['user:2', 'user:3'],
+                       :mode => ApprovalRouteStep::ALL_MODE)
+    @request.session[:user_id] = 2
+
+    assert_difference 'ApprovalSignature.count', 1 do
+      assert_no_difference 'Journal.count' do
+        post :create, :params => {:issue_id => @issue.id, :decision => 'approve'}
+      end
+    end
+
+    assert_redirected_to "/issues/#{@issue.id}"
+    assert_equal 1, @issue.reload.status_id, 'the issue does not move until the step is complete'
+    assert_equal 0, @issue.approval_position
+    # The signature records which name on the list it filled.
+    assert_equal 2, ApprovalSignature.last.approval_route_approver.approver_user_id
+  end
+
+  def test_all_mode_says_who_the_step_is_still_waiting_on
+    set_step_approvers(@route.step_at(0), ['user:2', 'user:3'],
+                       :mode => ApprovalRouteStep::ALL_MODE)
+    @request.session[:user_id] = 2
+
+    post :create, :params => {:issue_id => @issue.id, :decision => 'approve'}
+
+    assert_include User.find(3).name, flash[:notice].to_s
+  end
+
+  def test_all_mode_refuses_a_signature_out_of_turn
+    set_step_approvers(@route.step_at(0), ['user:2', 'user:3'],
+                       :mode => ApprovalRouteStep::ALL_MODE)
+    # dlopper is second on the list and holds the transition through role 2.
+    WorkflowTransition.create!(:tracker_id => @issue.tracker_id, :role_id => 2,
+                               :old_status_id => 1, :new_status_id => 2)
+    @request.session[:user_id] = 3
+
+    assert_no_difference 'ApprovalSignature.count' do
+      post :create, :params => {:issue_id => @issue.id, :decision => 'approve'}
+    end
+
+    assert_response :forbidden
+  end
+
+  def test_the_last_signature_of_an_all_step_moves_the_issue
+    set_step_approvers(@route.step_at(0), ['user:2', 'user:3'],
+                       :mode => ApprovalRouteStep::ALL_MODE)
+    WorkflowTransition.create!(:tracker_id => @issue.tracker_id, :role_id => 2,
+                               :old_status_id => 1, :new_status_id => 2)
+
+    @request.session[:user_id] = 2
+    post :create, :params => {:issue_id => @issue.id, :decision => 'approve'}
+    assert_equal 1, @issue.reload.status_id
+
+    @request.session[:user_id] = 3
+    post :create, :params => {:issue_id => @issue.id, :decision => 'approve'}
+
+    assert_equal 2, @issue.reload.status_id
+    assert_equal 1, @issue.approval_position
+  end
+
+  def test_a_comment_on_a_partial_signature_still_reaches_the_history
+    set_step_approvers(@route.step_at(0), ['user:2', 'user:3'],
+                       :mode => ApprovalRouteStep::ALL_MODE)
+    @request.session[:user_id] = 2
+
+    assert_difference 'Journal.count', 1 do
+      post :create, :params => {:issue_id => @issue.id, :decision => 'approve',
+                                :comments => 'Đồng ý về nguyên tắc'}
+    end
+
+    assert_equal 'Đồng ý về nguyên tắc', Journal.order(:id).last.notes
+    assert_equal 1, @issue.reload.status_id
+  end
+
   def test_new_renders_the_signing_form
     @request.session[:user_id] = 2
 

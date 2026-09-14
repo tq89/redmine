@@ -73,12 +73,22 @@ module RedmineApprovalWorkflow
       approval_route.present? && approval_route.step_count > 0
     end
 
+    # Where the chain stands: the step awaiting a signature and what that step
+    # has collected so far. Not memoised -- callers sign and ask again within
+    # the same request, and a stale answer there would be a wrong one.
+    def approval_progress
+      RedmineApprovalWorkflow::ChainProgress.compute(approval_route, approval_signatures.to_a)
+    end
+
     # Index of the step awaiting a signature.
     def approval_position
-      last = approval_signatures.last
-      return 0 if last.nil?
+      approval_progress[0]
+    end
 
-      last.approved? ? last.step_position + 1 : [last.step_position - 1, 0].max
+    # Signatures the pending step has already collected. Empty unless the step
+    # is in "all" mode and is part-way through its list.
+    def approval_step_signatures
+      approval_progress[1]
     end
 
     # Every step has been approved.
@@ -115,14 +125,20 @@ module RedmineApprovalWorkflow
     # may sign a step exactly when Redmine's workflow lets them move the issue
     # into that step's status.
     #
-    # When +step+ names an approver, that narrows the result further; it can
+    # When +step+ lists approvers, that narrows the result further; it can
     # never let somebody sign a transition the workflow denies them.
     def approval_signable_by?(user, target_status, step = nil)
       return false if target_status.nil?
       return false unless attributes_editable?(user)
-      return false if step && !step.assigned_to?(user, self)
+      return false if step && !step.signable_by?(user, self, approval_step_signatures)
 
       new_statuses_allowed_to(user).include?(target_status)
+    end
+
+    # The approver slot +user+ is filling on the pending step, recorded on the
+    # signature so an "all" step knows who is still missing.
+    def approval_approver_for(user)
+      current_approval_step&.approver_for(user, self, approval_step_signatures)
     end
 
     def can_approve?(user = User.current)

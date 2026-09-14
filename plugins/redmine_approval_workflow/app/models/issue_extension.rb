@@ -77,13 +77,20 @@ class IssueExtension < ApplicationRecord
     previous_due_date || User.current.today
   end
 
-  # Index of the step awaiting a signature, using the same rule as the issue
-  # chain: approving advances, rejecting sends back one.
-  def approval_position
-    last = approval_signatures.last
-    return 0 if last.nil?
+  # Same replay as the issue chain: approving advances once the step has what
+  # it needs, rejecting sends back one.
+  def approval_progress
+    RedmineApprovalWorkflow::ChainProgress.compute(approval_route, approval_signatures.to_a)
+  end
 
-    last.approved? ? last.step_position + 1 : [last.step_position - 1, 0].max
+  # Index of the step awaiting a signature.
+  def approval_position
+    approval_progress[0]
+  end
+
+  # Signatures the pending step has already collected.
+  def approval_step_signatures
+    approval_progress[1]
   end
 
   def current_approval_step
@@ -96,8 +103,8 @@ class IssueExtension < ApplicationRecord
     current_approval_step&.action_label || ::I18n.t(:button_approve)
   end
 
-  # An extension step has no workflow transition behind it, so the named
-  # approver is the whole rule -- plus being allowed to touch the issue at all.
+  # An extension step has no workflow transition behind it, so the approver
+  # list is the whole rule -- plus being allowed to touch the issue at all.
   def signable_by?(user)
     return false unless pending?
 
@@ -106,7 +113,12 @@ class IssueExtension < ApplicationRecord
     return false unless issue.attributes_editable?(user)
     return false if issue.read_only_attribute_names(user).include?('due_date')
 
-    step.assigned_to?(user, issue)
+    step.signable_by?(user, issue, approval_step_signatures)
+  end
+
+  # The approver slot +user+ is filling on the pending step.
+  def approval_approver_for(user)
+    current_approval_step&.approver_for(user, issue, approval_step_signatures)
   end
 
   private

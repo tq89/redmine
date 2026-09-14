@@ -163,13 +163,15 @@ Bật tại **Quản trị → Plugins → Cấu hình → Gửi email khi tới
 Mail được gửi khi:
 
 - tạo công việc mới thuộc tracker có lưu trình (bước 1 lập tức chờ ký);
-- ai đó **ký duyệt** xong, bước kế tiếp chuyển sang người khác;
+- ai đó **ký duyệt** xong, bước kế tiếp chuyển sang người khác — hoặc, với bước
+  AND, tới lượt người kế tiếp **trong cùng bước**;
 - ai đó **từ chối**, công việc trả về bước trước đó;
 - có **đơn xin gia hạn** mới, hoặc một bước gia hạn vừa được ký và tới lượt
   người sau. Đơn đã duyệt xong hoặc đã bị từ chối thì không gửi cho ai nữa.
 
 Người nhận là những ai có quyền ký bước đang chờ — tức là có quyền chuyển sang
-trạng thái đích của bước đó. Danh sách được thu hẹp trước bằng các vai trò thật
+trạng thái đích của bước đó. Bước OR gửi cho **cả danh sách**; bước AND chỉ gửi
+cho **người kế tiếp chưa ký**. Danh sách được thu hẹp trước bằng các vai trò thật
 sự nắm chuyển trạng thái, nên dự án đông người không đồng nghĩa với việc kiểm
 tra từng thành viên.
 
@@ -249,8 +251,13 @@ Lưu trình được khai báo tại **Cài đặt dự án → thẻ "Lưu trì
 dụng cho dự án đó**. Cần quyền *Quản lý lưu trình ký* (Quản trị → Vai trò).
 
 Mỗi lưu trình gồm tên, **loại** (*Duyệt công việc* hay *Duyệt gia hạn*),
-tracker, trạng thái khi bị từ chối, và danh sách bước. Loại **không đổi được**
-sau khi đã lưu — đổi loại là đổi hẳn ý nghĩa của các chữ ký đã ghi.
+**danh sách kiểu vấn đề**, trạng thái khi bị từ chối, và danh sách bước. Loại
+**không đổi được** sau khi đã lưu — đổi loại là đổi hẳn ý nghĩa của các chữ ký
+đã ghi.
+
+Một lưu trình **áp dụng cho nhiều kiểu vấn đề** cùng lúc: chọn bao nhiêu tracker
+cũng được, mỗi cái là một thẻ. Không chọn cái nào thì lưu trình không quản việc
+gì cả, nên mô hình từ chối lưu.
 
 Mỗi **bước** khai báo:
 
@@ -258,12 +265,53 @@ Mỗi **bước** khai báo:
 |---|---|
 | Tên bước | ví dụ "Trưởng bộ phận duyệt" |
 | Trạng thái sau khi ký | trạng thái công việc chuyển sang — **chỉ có ở lưu trình công việc** |
-| **Người ký** | một ô chọn duy nhất: **Người thực hiện**, một **vai trò**, hoặc một **người** cụ thể; **bắt buộc** với bước gia hạn |
+| **Người ký** | **danh sách** có thứ tự: **Người thực hiện**, các **vai trò**, các **người** cụ thể; **bắt buộc** với bước gia hạn |
+| **Cách ký** | *Một người bất kỳ (OR)* hoặc *Tất cả, theo thứ tự (AND)* |
 | **Nhãn nút** | chữ trên nút thao tác, ví dụ "Trình ký", "Phê duyệt"; để trống = "Ký duyệt" |
 
 Bảng bước có nút **"Thêm bước"** để thêm dòng, nên lưu trình dài bao nhiêu bước
 cũng khai báo được. Dòng mới tự nhận số thứ tự kế tiếp; khi lưu, thứ tự được
 đánh lại 0..n-1 theo đúng thứ tự trên form.
+
+### OR và AND
+
+| Cách ký | Nghĩa |
+|---|---|
+| **Một người bất kỳ (OR)** | ai trong danh sách ký trước là xong bước; thứ tự chỉ là thứ tự hiển thị |
+| **Tất cả, theo thứ tự (AND)** | mọi người đều phải ký, và **đúng theo thứ tự các thẻ** — chỉ người kế tiếp chưa ký mới bấm được nút |
+
+Với AND, mỗi chữ ký giữa chừng **không** làm công việc đổi trạng thái: nó chỉ
+được ghi lại, panel vẫn dừng ở bước đó, và thông báo nói rõ còn chờ ai. Trạng
+thái chỉ chuyển sau chữ ký cuối cùng. Ý kiến gõ kèm một chữ ký giữa chừng vẫn
+vào lịch sử công việc như bình thường.
+
+Bị **từ chối** ở bất kỳ đâu trong bước AND thì lưu trình lùi một bước và những
+chữ ký bước đó đã gom **không còn tính** — phải ký lại từ đầu bước.
+
+Một bước được **suy ra từ lịch sử** (mục "Tự khớp với trạng thái thật" bên dưới)
+tính là đã qua trọn vẹn, kể cả ở chế độ AND: lịch sử ghi việc công việc đã
+chuyển trạng thái, chứ không ghi ai đã điền ô nào.
+
+### Thẻ: chọn xong giữ lại, kéo thả đổi thứ tự, bấm × để bỏ
+
+Cả danh sách kiểu vấn đề lẫn danh sách người ký đều dùng chung một kiểu điều
+khiển: chọn từ ô thả xuống rồi bấm *Thêm*, thứ vừa chọn **ở lại thành một thẻ**
+trong hàng. Kéo thả thẻ để đổi thứ tự, bấm **×** để bỏ. Chính các thẻ là trường
+dữ liệu — mỗi thẻ mang một input ẩn, và thứ tự các thẻ chính là thứ tự được gửi
+đi. Danh sách kiểu vấn đề không kéo thả được vì thứ tự tracker không mang ý
+nghĩa gì.
+
+### Chỉ định người ký vẫn chỉ thu hẹp
+
+Điểm quan trọng không đổi: danh sách người ký **lọc bên trong** quyền chuyển
+trạng thái, không thay thế nó. Có tên trong danh sách mà luồng công việc không
+cho chuyển trạng thái thì vẫn không ký được.
+
+> Một lỗ hổng đi kèm đã được vá trong lần này: trước đây `ApprovalsController`
+> chỉ kiểm tra quyền chuyển trạng thái mà **không** kiểm tra danh sách người ký,
+> nên người có quyền chuyển trạng thái có thể POST thẳng vào endpoint để ký bước
+> của người khác — nút thì bị ẩn, endpoint thì không. Nay endpoint kiểm tra cả
+> hai, và có test riêng cho nó.
 
 ### "Người thực hiện" — người ký lấy theo công việc
 
@@ -278,15 +326,16 @@ rơi đúng vào người được giao.
   thực hiện để đối chiếu.
 - Đổi người được giao là đổi luôn người ký, ngay lập tức.
 
-### Chỉ định người ký chỉ **thu hẹp**, không bao giờ mở rộng
+### Công thức đầy đủ
 
 Nền tảng vẫn là quyền chuyển trạng thái trong luồng công việc. Chỉ định ở bước
 lọc thêm bên trong đó:
 
 ```
 được ký  =  luồng công việc cho phép chuyển trạng thái
-            VÀ (bước không chỉ định
-                HOẶC đúng vai trò / đúng người / đúng người thực hiện)
+            VÀ (danh sách người ký rỗng
+                HOẶC OR: có tên trong danh sách
+                HOẶC AND: là người kế tiếp chưa ký trong danh sách)
 ```
 
 Chỉ định một người **không** cấp cho họ quyền chuyển trạng thái mà luồng công
@@ -392,4 +441,4 @@ chỗ: trong journal và trong chính bản ghi chữ ký (hiện trên panel l�
 bundle exec rails test plugins/redmine_approval_workflow/test RAILS_ENV=test
 ```
 
-220 test, 856 assertion.
+256 test, 988 assertion.

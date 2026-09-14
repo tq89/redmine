@@ -11,8 +11,13 @@
     <em class="info"><%= l(:text_route_kind_hint) %></em>
   </p>
   <p>
-    <%= f.select :tracker_id, @project.trackers.sorted.map {|t| [t.name, t.id]},
-                 :required => true, :label => :label_tracker %>
+    <label><%= l(:label_tracker_plural) %> <span class="required">*</span></label>
+    <%= render :partial => 'approval_routes/chip_picker',
+               :locals => {:name => 'approval_route[tracker_ids][]',
+                           :choices => approval_tracker_options(@project),
+                           :selected => @route.tracker_ids.map(&:to_s),
+                           :sortable => false} %>
+    <em class="info"><%= l(:text_route_trackers_hint) %></em>
   </p>
   <p>
     <%= f.select :rejected_status_id,
@@ -35,7 +40,8 @@
         <th><%= l(:label_order) %></th>
         <th><%= l(:field_name) %></th>
         <% unless @route.extension? %><th><%= l(:label_target_status) %></th><% end %>
-        <th><%= l(:label_approver) %></th>
+        <th><%= l(:label_approver_plural) %></th>
+        <th><%= l(:label_approval_mode) %></th>
         <th><%= l(:label_button_label) %></th>
         <th><%= l(:button_delete) %></th>
       </tr>
@@ -53,12 +59,13 @@
   </p>
 
   <em class="info"><%= @route.extension? ? l(:text_extension_approver_hint) : l(:text_approver_hint) %></em>
+  <em class="info"><%= l(:text_approval_mode_hint) %></em>
   <em class="info"><%= l(:text_button_label_hint) %></em>
 </fieldset>
 
 <%
   # A blank row kept out of the form, used as the pattern for rows added by the
-  # button below. child_index puts a placeholder where Rails would write the
+  # button above. child_index puts a placeholder where Rails would write the
   # index, so the clone gets a name the nested-attributes hash accepts -- Rails
   # only treats that hash as a collection when EVERY key is numeric.
   template_row = capture do
@@ -72,6 +79,105 @@
 
 <script>
   (function () {
+    // ---- chips: pick, drop, reorder --------------------------------------
+    // Delegated from the document, so chip rows added with a step later work
+    // without being wired up again.
+    function chipList(el) { return el.closest('[data-chip-picker]').querySelector('[data-chip-list]'); }
+
+    document.addEventListener('click', function (event) {
+      var add = event.target.closest('[data-chip-add]');
+      if (add) {
+        event.preventDefault();
+        var picker = add.closest('[data-chip-picker]');
+        var source = picker.querySelector('[data-chip-source]');
+        var value = source.value;
+        if (!value) { return; }
+
+        var list = picker.querySelector('[data-chip-list]');
+        // Picking the same thing twice is a no-op rather than a duplicate.
+        if (list.querySelector('[data-chip-value="' + value.replace(/"/g, '\\"') + '"]')) {
+          source.value = '';
+          return;
+        }
+
+        var label = source.options[source.selectedIndex].text;
+        var sortable = picker.classList.contains('chip-picker-sortable');
+        var li = document.createElement('li');
+        li.className = 'chip';
+        li.setAttribute('data-chip-value', value);
+        if (sortable) { li.setAttribute('draggable', 'true'); }
+
+        if (sortable) {
+          var grip = document.createElement('span');
+          grip.className = 'chip-grip';
+          grip.setAttribute('aria-hidden', 'true');
+          grip.textContent = '⠿';
+          li.appendChild(grip);
+        }
+        var text = document.createElement('span');
+        text.className = 'chip-label';
+        text.textContent = label;
+        li.appendChild(text);
+
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = picker.getAttribute('data-chip-name');
+        input.value = value;
+        li.appendChild(input);
+
+        var remove = document.createElement('a');
+        remove.href = '#';
+        remove.className = 'chip-remove';
+        remove.setAttribute('data-chip-remove', '');
+        remove.textContent = '×';
+        li.appendChild(remove);
+
+        list.appendChild(li);
+        source.value = '';
+        return;
+      }
+
+      var kill = event.target.closest('[data-chip-remove]');
+      if (kill) {
+        event.preventDefault();
+        kill.closest('.chip').remove();
+      }
+    });
+
+    var dragged = null;
+    document.addEventListener('dragstart', function (event) {
+      var chip = event.target.closest ? event.target.closest('.chip[draggable]') : null;
+      if (!chip) { return; }
+      dragged = chip;
+      chip.classList.add('chip-dragging');
+      // Firefox will not start a drag without data on the transfer.
+      if (event.dataTransfer) { event.dataTransfer.setData('text/plain', ''); }
+    });
+
+    document.addEventListener('dragover', function (event) {
+      if (!dragged) { return; }
+      var list = chipList(dragged);
+      if (!list || !list.contains(event.target)) { return; }
+      event.preventDefault();
+
+      var over = event.target.closest('.chip');
+      if (!over || over === dragged) { return; }
+      // Past the halfway mark means the chip belongs after the one under it.
+      var box = over.getBoundingClientRect();
+      var after = (event.clientX - box.left) > box.width / 2;
+      list.insertBefore(dragged, after ? over.nextSibling : over);
+    });
+
+    document.addEventListener('drop', function (event) {
+      if (dragged) { event.preventDefault(); }
+    });
+
+    document.addEventListener('dragend', function () {
+      if (dragged) { dragged.classList.remove('chip-dragging'); }
+      dragged = null;
+    });
+
+    // ---- the add-step button ---------------------------------------------
     var link = document.getElementById('approval-add-step');
     var tpl = document.getElementById('approval-step-template');
     var body = document.getElementById('approval-step-rows');

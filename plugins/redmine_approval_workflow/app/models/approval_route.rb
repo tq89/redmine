@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
-# An ordered chain of approval steps ("lưu trình ký") attached to a tracker,
-# optionally narrowed to a single project.
+# An ordered chain of approval steps ("lưu trình ký") covering one or more
+# trackers, optionally narrowed to a single project.
 class ApprovalRoute < ApplicationRecord
-  belongs_to :tracker
   belongs_to :project, :optional => true
   belongs_to :rejected_status, :class_name => 'IssueStatus', :optional => true
+
+  has_many :approval_route_trackers, :dependent => :delete_all
+  has_many :trackers, :through => :approval_route_trackers
 
   has_many :steps, lambda {order(:position, :id)},
            :class_name => 'ApprovalRouteStep',
@@ -25,7 +27,7 @@ class ApprovalRoute < ApplicationRecord
   # optional here regardless of the Rails 5+ default. These presence rules are
   # what actually keeps the foreign keys populated.
   validates :name, :presence => true, :length => {:maximum => 255}
-  validates :tracker_id, :presence => true
+  validate :validate_trackers
 
   ISSUE_KIND = 'issue'
   EXTENSION_KIND = 'extension'
@@ -41,6 +43,14 @@ class ApprovalRoute < ApplicationRecord
     kind == EXTENSION_KIND
   end
 
+  def covers_tracker?(tracker_id)
+    tracker_ids.include?(tracker_id)
+  end
+
+  def tracker_names
+    trackers.sorted.map(&:name)
+  end
+
   # The chain that governs extension requests on +issue+, or nil.
   def self.extension_for_issue(issue)
     for_issue(issue, EXTENSION_KIND)
@@ -48,14 +58,15 @@ class ApprovalRoute < ApplicationRecord
 
   # Returns the route of +kind+ that governs +issue+, or nil.
   #
-  # A route bound to the issue's project wins over a global one for the same
-  # tracker, so a project can override the organisation-wide chain.
+  # A route bound to the issue's project wins over a global one covering the
+  # same tracker, so a project can override the organisation-wide chain.
   def self.for_issue(issue, kind = ISSUE_KIND)
     return nil if issue.nil? || issue.tracker_id.nil?
 
     active.
       of_kind(kind).
-      where(:tracker_id => issue.tracker_id).
+      joins(:approval_route_trackers).
+      where(:approval_route_trackers => {:tracker_id => issue.tracker_id}).
       where(:project_id => [nil, issue.project_id]).
       order(Arel.sql('CASE WHEN project_id IS NULL THEN 1 ELSE 0 END'), :id).
       first
@@ -75,5 +86,12 @@ class ApprovalRoute < ApplicationRecord
 
   def to_s
     name.to_s
+  end
+
+  private
+
+  # A route covering nothing would silently govern no issue at all.
+  def validate_trackers
+    errors.add(:tracker_ids, :blank) if trackers.reject(&:marked_for_destruction?).empty?
   end
 end

@@ -45,7 +45,7 @@ class ExtensionApprovalTest < ActiveSupport::TestCase
   # --- route and step configuration -----------------------------------------
 
   def test_extension_step_without_an_approver_is_invalid
-    route = ApprovalRoute.create!(:name => 'GH', :tracker_id => 1,
+    route = ApprovalRoute.create!(:name => 'GH', :tracker_ids => [1],
                                   :kind => ApprovalRoute::EXTENSION_KIND)
     step = route.steps.build(:name => 'Duyệt', :position => 0)
 
@@ -56,17 +56,17 @@ class ExtensionApprovalTest < ActiveSupport::TestCase
   end
 
   def test_extension_step_needs_no_status
-    route = ApprovalRoute.create!(:name => 'GH', :tracker_id => 1,
+    route = ApprovalRoute.create!(:name => 'GH', :tracker_ids => [1],
                                   :kind => ApprovalRoute::EXTENSION_KIND)
-    step = route.steps.build(:name => 'Duyệt', :position => 0, :approver_user_id => 2)
+    step = route.steps.build(:name => 'Duyệt', :position => 0, :approver_tokens => ['user:2'])
 
     assert step.valid?, step.errors.full_messages.join(', ')
     assert_nil step.issue_status_id
   end
 
   def test_issue_step_still_requires_a_status
-    route = ApprovalRoute.create!(:name => 'CV', :tracker_id => 1)
-    step = route.steps.build(:name => 'Ký', :position => 0, :approver_user_id => 2)
+    route = ApprovalRoute.create!(:name => 'CV', :tracker_ids => [1])
+    step = route.steps.build(:name => 'Ký', :position => 0, :approver_tokens => ['user:2'])
 
     assert_not step.valid?
     assert_includes step.errors.attribute_names, :issue_status_id
@@ -171,7 +171,7 @@ class ExtensionApprovalTest < ActiveSupport::TestCase
   end
 
   def test_a_role_step_is_signable_by_any_member_holding_that_role
-    build_extension_route(:approvers => [{:approver_role_id => 2}])
+    build_extension_route(:approvers => ['role:2'])
     extension = request_extension
 
     assert extension.signable_by?(User.find(3)), 'user 3 is a Developer on project 1'
@@ -296,7 +296,7 @@ class ExtensionApprovalTest < ActiveSupport::TestCase
   end
 
   def test_pending_for_drops_a_request_once_it_is_decided
-    build_extension_route(:approvers => [{:approver_user_id => 2}])
+    build_extension_route(:approvers => ['user:2'])
     extension = request_extension
 
     assert_equal 1, RedmineApprovalWorkflow::ExtensionApproval.pending_for(User.find(2)).size

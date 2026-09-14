@@ -10,6 +10,11 @@ vi:
   label_approval_step: "Bước ký"
   label_approval_step_plural: "Các bước ký"
   label_approval_step_add: "Thêm bước"
+  label_approval_mode: "Cách ký"
+  label_approval_mode_any: "Một người bất kỳ (OR)"
+  label_approval_mode_all: "Tất cả, theo thứ tự (AND)"
+  label_approval_mode_join_any: "hoặc"
+  label_approval_mode_join_all: "rồi"
   label_approval_step_done: "Đã ký"
   label_approval_step_current: "Đang chờ ký"
   label_approval_step_pending: "Chưa tới lượt"
@@ -24,6 +29,7 @@ vi:
   label_order: "Thứ tự"
   label_all_projects: "Tất cả dự án"
   label_approver: "Người ký"
+  label_approver_plural: "Người ký"
   label_approver_anyone: "(theo luồng công việc)"
   label_approver_dynamic: "Lấy theo công việc"
   label_approver_assignee: "Người thực hiện"
@@ -47,7 +53,7 @@ vi:
   text_confirm_quick_sign: "Ký duyệt và chuyển sang trạng thái \"%{status}\"?"
   text_project_approval_routes_hint: "Lưu trình khai báo ở đây chỉ áp dụng cho dự án này."
   text_routes_moved_to_project_settings: "Lưu trình ký được khai báo trong Cài đặt của từng dự án, thẻ \"Lưu trình ký\"."
-  text_approver_hint: "Mỗi bước có một người ký: một vai trò, một người cụ thể, hoặc \"Người thực hiện\" — tức người đang được giao công việc lúc đó. Để trống thì ai có quyền chuyển trạng thái đều ký được. Khi đã chỉ định, chỉ người đó thấy nút ký, thấy thông báo và nhận email."
+  text_approver_hint: "Thêm bao nhiêu người ký cũng được: một vai trò, một người cụ thể, hoặc \"Người thực hiện\" — tức người đang được giao công việc lúc đó. Kéo thả các thẻ để đổi thứ tự. Để trống thì ai có quyền chuyển trạng thái đều ký được. Khi đã liệt kê, chỉ những người đó thấy nút ký, thấy thông báo và nhận email."
   text_extension_approver_hint: "Bước gia hạn không gắn với trạng thái nào nên không có luồng công việc để xét quyền ký. Mỗi bước bắt buộc phải chỉ định người ký."
   text_button_label_hint: "Nhãn hiển thị trên nút thao tác của bước, ví dụ \"Trình ký\", \"Phê duyệt\". Để trống thì dùng \"Ký duyệt\"."
   label_pending_approval_plural: "Công việc chờ tôi ký"
@@ -59,6 +65,7 @@ vi:
   button_reject_approval: "Từ chối"
 
   notice_approval_signed: "Đã ký duyệt thành công."
+  notice_approval_signed_waiting: "Đã ký. Bước này còn chờ %{name}."
   notice_approval_rejected: "Đã từ chối và trả lại bước trước."
 
   error_approval_already_completed: "Lưu trình ký đã hoàn tất, không còn bước nào để ký."
@@ -71,6 +78,8 @@ vi:
   text_approval_route_project_hint: "Để trống để áp dụng cho mọi dự án. Lưu trình gắn với một dự án sẽ được ưu tiên hơn lưu trình chung của cùng tracker."
   text_rejected_status_hint: "Trạng thái công việc quay về khi bị từ chối ngay ở bước đầu tiên."
   text_approval_step_hint: "Các bước được thực hiện theo thứ tự tăng dần. Quyền ký mỗi bước chính là quyền chuyển sang trạng thái đích của bước đó, thiết lập trong Quản trị → Luồng công việc."
+  text_approval_mode_hint: "Chọn \"Một người bất kỳ\" thì ai trong danh sách ký trước là xong bước. Chọn \"Tất cả\" thì mọi người đều phải ký, theo đúng thứ tự các thẻ, và công việc chỉ chuyển trạng thái sau khi người cuối cùng ký."
+  text_route_trackers_hint: "Lưu trình áp dụng cho công việc thuộc mọi kiểu vấn đề liệt kê ở đây. Không kéo thả vì thứ tự kiểu vấn đề không có ý nghĩa."
 
   # Gia hạn
   label_issue_extension: "Gia hạn"
@@ -134,10 +143,13 @@ vi:
       models:
         approval_route_step:
           attributes:
-            approver_user_id:
-              only_one_approver_allowed: "chỉ được chọn vai trò hoặc một người, không chọn cả hai"
             base:
-              extension_step_needs_approver: "Bước gia hạn phải chỉ định vai trò hoặc người ký."
+              extension_step_needs_approver: "Bước gia hạn phải có ít nhất một người ký."
+        approval_route_approver:
+          attributes:
+            base:
+              approver_missing: "phải là một vai trò, một người, hoặc người thực hiện"
+              approver_ambiguous: "chỉ được chọn một trong ba: vai trò, người, hoặc người thực hiện"
         issue_extension:
           attributes:
             new_due_date:

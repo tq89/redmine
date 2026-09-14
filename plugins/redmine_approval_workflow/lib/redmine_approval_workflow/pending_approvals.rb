@@ -33,13 +33,14 @@ module RedmineApprovalWorkflow
       # Issue chains only. An extension chain has no target status and is not
       # signed from here; ExtensionApproval.pending_for handles those.
       routes = ApprovalRoute.active.of_kind(ApprovalRoute::ISSUE_KIND).
-               preload(:steps => :issue_status).to_a
+               preload(:approval_route_trackers,
+                       :steps => [:issue_status, {:approvers => [:approver_role, :approver_user]}]).to_a
       return [] if routes.empty?
 
       # Resolved once and passed down: it costs a query and both the
       # pre-filter and the transition lookup need it.
       role_ids = workflow_role_ids(user)
-      issues = candidates(user, routes.map(&:tracker_id).uniq, role_ids)
+      issues = candidates(user, routes.flat_map(&:tracker_ids).uniq, role_ids)
       return [] if issues.empty?
 
       steps = pending_steps(routes, issues)
@@ -80,22 +81,27 @@ module RedmineApprovalWorkflow
       ids.compact.uniq
     end
 
-    # issue id => the step awaiting a signature.
+    # issue id => [step awaiting a signature, signatures it has collected].
+    #
+    # The collected list is what an "all" step needs to know whose turn it is,
+    # so it is carried through rather than recomputed per check.
     def pending_steps(routes, issues)
       issues.each_with_object({}) do |issue, result|
         route = route_for(routes, issue)
         next if route.nil?
 
-        step = route.steps.detect {|s| s.position == issue.approval_position}
-        result[issue.id] = step if step
+        position, collected =
+          RedmineApprovalWorkflow::ChainProgress.compute(route, issue.approval_signatures.to_a)
+        step = route.steps.detect {|s| s.position == position}
+        result[issue.id] = [step, collected] if step
       end
     end
 
     # Mirrors ApprovalRoute.for_issue: a route bound to the issue's project
-    # wins over a global one for the same tracker.
+    # wins over a global one covering the same tracker.
     def route_for(routes, issue)
       routes.
-        select {|r| r.tracker_id == issue.tracker_id && (r.project_id.nil? || r.project_id == issue.project_id)}.
+        select {|r| r.covers_tracker?(issue.tracker_id) && (r.project_id.nil? || r.project_id == issue.project_id)}.
         min_by {|r| [r.project_id.nil? ? 1 : 0, r.id]}
     end
 
@@ -103,16 +109,17 @@ module RedmineApprovalWorkflow
       WorkflowTransition.
         where(:tracker_id => issues.map(&:tracker_id).uniq,
               :old_status_id => issues.map(&:status_id).uniq,
-              :new_status_id => steps.values.map(&:issue_status_id).uniq,
+              :new_status_id => steps.values.map {|step, _| step.issue_status_id}.uniq,
               :role_id => role_ids).
         pluck(:tracker_id, :old_status_id, :new_status_id, :role_id, :author, :assignee).
         group_by {|row| [row[0], row[1], row[2]]}
     end
 
-    def signable?(user, issue, step, transitions)
+    def signable?(user, issue, pending, transitions)
+      step, collected = pending
       return false unless issue.attributes_editable?(user)
-      # A step that names its approver is shown only to them.
-      return false unless step.assigned_to?(user, issue)
+      # A step that lists its approvers is shown only to whoever's turn it is.
+      return false unless step.signable_by?(user, issue, collected)
 
       rows = transitions[[issue.tracker_id, issue.status_id, step.issue_status_id]]
       return false if rows.blank?

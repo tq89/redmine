@@ -188,7 +188,7 @@ class IssueExtensionsControllerTest < Redmine::ControllerTest
   end
 
   def test_the_last_approval_moves_the_due_date
-    build_extension_route(:approvers => [{:approver_user_id => 2}])
+    build_extension_route(:approvers => ['user:2'])
     extension = create_pending_extension
     @request.session[:user_id] = 2
 

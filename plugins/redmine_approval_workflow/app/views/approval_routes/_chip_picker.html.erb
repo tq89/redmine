@@ -1,0 +1,49 @@
+<%
+  # Pick from a list, and what you picked stays put as a chip you can drag into
+  # a different order or throw away. The chips ARE the form field: each one
+  # carries a hidden input, and the order they sit in is the order posted.
+  #
+  # locals:
+  #   name      field name, repeated for every chip, e.g. "route[tracker_ids][]"
+  #   choices   plain [[label, value], ...] or grouped [[group, [[label, value], ...]], ...]
+  #   selected  chosen values, in order
+  #   sortable  false to drop drag-and-drop where order carries no meaning
+  name     = local_assigns[:name]
+  choices  = local_assigns[:choices]
+  selected = Array(local_assigns[:selected]).map(&:to_s)
+  sortable = local_assigns.fetch(:sortable, true)
+  labels   = approval_option_labels(choices)
+  # Unknown values (a role deleted since) still show, as their raw value, so
+  # they can be seen and removed rather than vanishing on the next save.
+  select_id = "chip-source-#{SecureRandom.hex(4)}"
+%>
+<div class="chip-picker<%= ' chip-picker-sortable' if sortable %>" data-chip-picker
+     data-chip-name="<%= h name %>">
+  <ul class="chip-list" data-chip-list>
+    <% selected.each do |value| %>
+      <li class="chip" data-chip-value="<%= h value %>"
+          <%= 'draggable="true"'.html_safe if sortable %>>
+        <% if sortable %><span class="chip-grip" aria-hidden="true">⠿</span><% end %>
+        <span class="chip-label"><%= h(labels[value] || value) %></span>
+        <input type="hidden" name="<%= h name %>" value="<%= h value %>" />
+        <a href="#" class="chip-remove" data-chip-remove
+           title="<%= l(:button_delete) %>" aria-label="<%= l(:button_delete) %>">&times;</a>
+      </li>
+    <% end %>
+  </ul>
+
+  <span class="chip-add-row">
+    <%= select_tag select_id,
+                   (choices.first&.last.is_a?(Array) ?
+                     grouped_options_for_select(choices) : options_for_select(choices)),
+                   :include_blank => true,
+                   :class => 'chip-source',
+                   :data => {:chip_source => true},
+                   :name => nil, :id => nil %>
+    <a href="#" class="icon icon-add chip-add" data-chip-add><%= l(:button_add) %></a>
+  </span>
+
+  <%# Always posted, so clearing every chip submits an empty list rather than
+      leaving the previous one in place. %>
+  <input type="hidden" name="<%= h name %>" value="" />
+</div>

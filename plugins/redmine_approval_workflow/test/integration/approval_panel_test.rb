@@ -93,13 +93,13 @@ class ApprovalPanelTest < Redmine::IntegrationTest
       post "/projects/#{identifier}/approval_routes", :params => {
         :approval_route => {
           :name => 'Lưu trình duyệt chi',
-          :tracker_id => 1,
+          :tracker_ids => ['1'],
           :active => '1',
           :steps_attributes => {
             '0' => {:name => 'Trưởng bộ phận', :issue_status_id => 2, :position => 0,
-                    :approver_role_id => 1, :button_label => 'Trình ký'},
+                    :approver_tokens => ['role:1'], :button_label => 'Trình ký'},
             '1' => {:name => 'Giám đốc', :issue_status_id => 3, :position => 1,
-                    :approver_user_id => 2}
+                    :approver_tokens => ['user:2']}
           }
         }
       }
@@ -111,9 +111,9 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     assert_equal @issue.project_id, route.project_id
     assert_equal [0, 1], route.steps.map(&:position)
     assert_equal [2, 3], route.steps.map(&:issue_status_id)
-    assert_equal 1, route.step_at(0).approver_role_id
+    assert_equal ['role:1'], route.step_at(0).approver_tokens
     assert_equal 'Trình ký', route.step_at(0).action_label
-    assert_equal 2, route.step_at(1).approver_user_id
+    assert_equal ['user:2'], route.step_at(1).approver_tokens
     # An unlabelled step falls back to the generic wording.
     assert_equal ::I18n.t(:button_approve), route.step_at(1).action_label
   end
@@ -138,11 +138,11 @@ class ApprovalPanelTest < Redmine::IntegrationTest
         :approval_route => {
           :name => 'Lưu trình duyệt gia hạn',
           :kind => 'extension',
-          :tracker_id => 1,
+          :tracker_ids => ['1'],
           :active => '1',
           :steps_attributes => {
-            '0' => {:name => 'Trưởng bộ phận', :position => 0, :approver_role_id => 1},
-            '1' => {:name => 'Giám đốc', :position => 1, :approver_user_id => 2}
+            '0' => {:name => 'Trưởng bộ phận', :position => 0, :approver_tokens => ['role:1']},
+            '1' => {:name => 'Giám đốc', :position => 1, :approver_tokens => ['user:2']}
           }
         }
       }
@@ -151,7 +151,7 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     route = ApprovalRoute.order(:id).last
     assert route.extension?
     assert_equal [nil, nil], route.steps.map(&:issue_status_id)
-    assert_equal 1, route.step_at(0).approver_role_id
+    assert_equal ['role:1'], route.step_at(0).approver_tokens
 
     # It governs extension requests, and nothing else.
     assert_equal route.id, ApprovalRoute.extension_for_issue(@issue).id
@@ -168,7 +168,7 @@ class ApprovalPanelTest < Redmine::IntegrationTest
         :approval_route => {
           :name => 'Thiếu người ký',
           :kind => 'extension',
-          :tracker_id => 1,
+          :tracker_ids => ['1'],
           :active => '1',
           :steps_attributes => {'0' => {:name => 'Ai đó', :position => 0}}
         }
@@ -208,7 +208,7 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     assert_difference 'ApprovalRoute.count', 1 do
       post "/projects/#{identifier}/approval_routes", :params => {
         :approval_route => {
-          :name => 'Lưu trình bốn bước', :tracker_id => 1, :active => '1',
+          :name => 'Lưu trình bốn bước', :tracker_ids => ['1'], :active => '1',
           :steps_attributes => {
             '0' => {:name => 'Giao việc', :issue_status_id => 2, :position => 0},
             '1' => {:name => 'Nhận việc', :issue_status_id => 3, :position => 1},
@@ -233,10 +233,15 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     get "/projects/#{identifier}/approval_routes/new"
 
     assert_response :success
-    assert_select 'select[name=?]', 'approval_route[steps_attributes][0][approver_token]' do
-      assert_select 'option[value=?]', 'dynamic:assignee'
-      assert_select 'option[value=?]', 'role:1'
-      assert_select 'option[value=?]', 'user:2'
+    # The chips carry the field name; the select beside them is only the
+    # source you pick from, so it deliberately posts nothing of its own.
+    assert_select '.chip-picker[data-chip-name=?]',
+                  'approval_route[steps_attributes][0][approver_tokens][]' do
+      assert_select 'select.chip-source' do
+        assert_select 'option[value=?]', 'dynamic:assignee'
+        assert_select 'option[value=?]', 'role:1'
+        assert_select 'option[value=?]', 'user:2'
+      end
     end
   end
 
@@ -247,21 +252,144 @@ class ApprovalPanelTest < Redmine::IntegrationTest
 
     post "/projects/#{identifier}/approval_routes", :params => {
       :approval_route => {
-        :name => 'Lưu trình giao việc', :tracker_id => 1, :active => '1',
+        :name => 'Lưu trình giao việc', :tracker_ids => ['1'], :active => '1',
         :steps_attributes => {
           '0' => {:name => 'Nhận việc', :issue_status_id => 2, :position => 0,
-                  :approver_token => 'dynamic:assignee'},
+                  :approver_tokens => ['dynamic:assignee']},
           '1' => {:name => 'Duyệt', :issue_status_id => 3, :position => 1,
-                  :approver_token => 'role:1'}
+                  :approver_tokens => ['role:1']}
         }
       }
     }
 
     route = ApprovalRoute.order(:id).last
-    assert_equal ApprovalRouteStep::ASSIGNEE, route.step_at(0).approver_dynamic
-    assert_nil route.step_at(0).approver_role_id
-    assert_equal 1, route.step_at(1).approver_role_id
-    assert_nil route.step_at(1).approver_dynamic
+    assert_equal ['dynamic:assignee'], route.step_at(0).approver_tokens
+    assert_equal ['role:1'], route.step_at(1).approver_tokens
+  end
+
+  # --- the chip picker ------------------------------------------------------
+
+  def test_the_chip_picker_keeps_what_was_chosen_in_order
+    Role.find(1).add_permission!(:manage_approval_routes)
+    route = build_route(:tracker_ids => [1, 2], :project_id => @issue.project_id,
+                        :statuses => [2, 3])
+    set_step_approvers(route.step_at(0), ['user:3', 'role:1'])
+    identifier = @issue.project.identifier
+    log_user('jsmith', 'jsmith')
+
+    get "/projects/#{identifier}/approval_routes/#{route.id}/edit"
+
+    assert_response :success
+    # Trackers: chosen ones stay as chips carrying the field name.
+    assert_select '.chip-picker[data-chip-name=?]', 'approval_route[tracker_ids][]' do
+      assert_select 'li.chip', 2
+      assert_select 'li.chip input[type=hidden][value=?]', '1'
+      assert_select 'li.chip input[type=hidden][value=?]', '2'
+      # Order carries no meaning for trackers, so they are not draggable.
+      assert_select 'li.chip[draggable]', 0
+    end
+    # Approvers: order is the signing order, so the chips drag.
+    assert_select '.chip-picker[data-chip-name=?]',
+                  'approval_route[steps_attributes][0][approver_tokens][]' do
+      assert_select 'li.chip[draggable=true]', 2
+    end
+    chips = css_select('.chip-picker[data-chip-name="approval_route[steps_attributes][0]' \
+                       '[approver_tokens][]"] li.chip')
+    assert_equal ['user:3', 'role:1'], chips.pluck('data-chip-value')
+  end
+
+  def test_the_chip_picker_ships_the_reorder_and_remove_script
+    Role.find(1).add_permission!(:manage_approval_routes)
+    log_user('jsmith', 'jsmith')
+
+    get "/projects/#{@issue.project.identifier}/approval_routes/new"
+
+    assert_response :success
+    assert_select 'a.chip-add[data-chip-add]', :minimum => 1
+    assert_include "event.target.closest('[data-chip-remove]')", @response.body
+    assert_include "list.insertBefore(dragged", @response.body
+  end
+
+  # Every chip row posts a trailing blank, so emptying one submits an empty
+  # list instead of leaving the previous selection in place.
+  def test_clearing_every_chip_clears_the_list
+    Role.find(1).add_permission!(:manage_approval_routes)
+    route = build_route(:tracker_ids => [1], :project_id => @issue.project_id,
+                        :statuses => [2, 3])
+    set_step_approvers(route.step_at(0), ['user:3'])
+    identifier = @issue.project.identifier
+    log_user('jsmith', 'jsmith')
+
+    put "/projects/#{identifier}/approval_routes/#{route.id}", :params => {
+      :approval_route => {
+        :name => route.name, :tracker_ids => ['1', ''],
+        :steps_attributes => {
+          '0' => {:id => route.step_at(0).id, :name => 'Bước 1', :issue_status_id => 2,
+                  :position => 0, :approver_tokens => ['']}
+        }
+      }
+    }
+
+    assert_equal [], route.reload.step_at(0).approver_tokens
+    assert_equal [1], route.tracker_ids
+  end
+
+  # --- several trackers per route -------------------------------------------
+
+  def test_a_route_can_be_saved_against_several_trackers
+    Role.find(1).add_permission!(:manage_approval_routes)
+    identifier = @issue.project.identifier
+    log_user('jsmith', 'jsmith')
+
+    assert_difference 'ApprovalRoute.count', 1 do
+      post "/projects/#{identifier}/approval_routes", :params => {
+        :approval_route => {
+          :name => 'Lưu trình chung', :tracker_ids => ['1', '2', ''], :active => '1',
+          :steps_attributes => {
+            '0' => {:name => 'Duyệt', :issue_status_id => 2, :position => 0}
+          }
+        }
+      }
+    end
+
+    route = ApprovalRoute.order(:id).last
+    assert_equal [1, 2], route.tracker_ids.sort
+
+    get "/projects/#{identifier}/settings/approval_routes"
+    assert_response :success
+    assert_select 'table.list td', :text => /#{Tracker.find(1).name}/
+  end
+
+  def test_a_route_with_no_tracker_is_refused
+    Role.find(1).add_permission!(:manage_approval_routes)
+    log_user('jsmith', 'jsmith')
+
+    assert_no_difference 'ApprovalRoute.count' do
+      post "/projects/#{@issue.project.identifier}/approval_routes", :params => {
+        :approval_route => {
+          :name => 'Không có kiểu vấn đề', :tracker_ids => [''], :active => '1',
+          :steps_attributes => {'0' => {:name => 'Duyệt', :issue_status_id => 2, :position => 0}}
+        }
+      }
+    end
+
+    assert_response :success
+    assert_select '#errorExplanation'
+  end
+
+  # --- signing modes on the page --------------------------------------------
+
+  def test_the_panel_names_every_approver_of_a_step
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    set_step_approvers(route.step_at(0), ['user:2', 'user:3'],
+                       :mode => ApprovalRouteStep::ALL_MODE)
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select 'div.approval-workflow .approval-assignee',
+                  :text => /#{User.find(2).name}.+#{User.find(3).name}/
   end
 
   # --- the floating header --------------------------------------------------
@@ -303,7 +431,7 @@ class ApprovalPanelTest < Redmine::IntegrationTest
   end
 
   def test_sticky_header_offers_a_pending_extension_instead_of_a_new_one
-    build_extension_route(:approvers => [{:approver_user_id => 2}])
+    build_extension_route(:approvers => ['user:2'])
     extension = create_pending_extension
     log_user('jsmith', 'jsmith')
 
@@ -578,7 +706,7 @@ class ApprovalPanelTest < Redmine::IntegrationTest
   end
 
   def test_the_sign_buttons_are_hidden_from_somebody_else
-    build_extension_route(:approvers => [{:approver_user_id => 3}])
+    build_extension_route(:approvers => ['user:3'])
     extension = create_pending_extension
     log_user('jsmith', 'jsmith')
 
@@ -647,7 +775,7 @@ class ApprovalPanelTest < Redmine::IntegrationTest
   end
 
   def test_bell_drops_the_extension_once_it_is_decided
-    build_extension_route(:approvers => [{:approver_user_id => 2}])
+    build_extension_route(:approvers => ['user:2'])
     extension = create_pending_extension
     log_user('jsmith', 'jsmith')
 

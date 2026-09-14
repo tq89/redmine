@@ -87,29 +87,29 @@ class PendingApprovalsTest < ActiveSupport::TestCase
   # not the bell, not the mail.
   def test_step_assigned_to_a_role_reaches_only_that_role
     route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
-    route.step_at(0).update!(:approver_role_id => 1)
+    route.step_at(0).update!(:approver_tokens => ['role:1'])
 
     assert_includes pending_ids(User.find(2)), @issue.id, 'jsmith holds role 1'
 
-    route.step_at(0).update!(:approver_role_id => 2)
+    route.step_at(0).update!(:approver_tokens => ['role:2'])
     assert_not_includes pending_ids(User.find(2)), @issue.id,
                         'jsmith does not hold role 2 on this project'
   end
 
   def test_step_assigned_to_a_person_reaches_only_them
     route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
-    route.step_at(0).update!(:approver_user_id => 2)
+    route.step_at(0).update!(:approver_tokens => ['user:2'])
 
     assert_includes pending_ids(User.find(2)), @issue.id
 
-    route.step_at(0).update!(:approver_user_id => 3)
+    route.step_at(0).update!(:approver_tokens => ['user:3'])
     assert_not_includes pending_ids(User.find(2)), @issue.id
   end
 
   def test_assignment_narrows_and_never_widens
     route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
     # Name a user who has no workflow transition into the step's status.
-    route.step_at(0).update!(:approver_user_id => 2)
+    route.step_at(0).update!(:approver_tokens => ['user:2'])
     WorkflowTransition.where(:tracker_id => @issue.tracker_id, :old_status_id => 1,
                              :new_status_id => 2).delete_all
 
@@ -125,7 +125,7 @@ class PendingApprovalsTest < ActiveSupport::TestCase
 
   def test_agrees_with_can_approve_for_an_assigned_step
     route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
-    route.step_at(0).update!(:approver_role_id => 2)
+    route.step_at(0).update!(:approver_tokens => ['role:2'])
 
     assert_agrees_with_can_approve 'step assigned to a role the user lacks'
   end
@@ -137,7 +137,7 @@ class PendingApprovalsTest < ActiveSupport::TestCase
     helper = RedmineApprovalWorkflow::PendingApprovals
     fast = helper.for_user(@user).map(&:id).sort
     slow = helper.
-           candidates(@user, ApprovalRoute.active.distinct.pluck(:tracker_id),
+           candidates(@user, ApprovalRouteTracker.distinct.pluck(:tracker_id),
                       helper.workflow_role_ids(@user)).
            select {|issue| issue.can_approve?(@user)}.map(&:id).sort
 

@@ -95,20 +95,20 @@ class ApprovalMailer < Mailer
       candidates(issue, step).select {|user| notifiable?(user, issue, actor)}
     end
 
+    # Only the approvers whose turn it actually is: everybody on the list when
+    # one signature is enough, and only the next name when the step wants them
+    # all. With no list at all, the roles that hold the transition.
     def candidates(issue, step)
-      return Array(User.active.find_by_id(step.approver_user_id)) if step.approver_user_id.present?
-      return assignee_candidates(issue) if step.approver_dynamic.present?
+      open = step.open_approvers(issue.approval_step_signatures)
+      return open.flat_map {|approver| approver.users_for(issue)}.uniq if open.any?
+      return [] if step.assigned?
 
       role_ids =
-        if step.approver_role_id.present?
-          [step.approver_role_id]
-        else
-          WorkflowTransition.
-            where(:tracker_id => issue.tracker_id,
-                  :old_status_id => issue.status_id,
-                  :new_status_id => step.issue_status_id).
-            distinct.pluck(:role_id)
-        end
+        WorkflowTransition.
+        where(:tracker_id => issue.tracker_id,
+              :old_status_id => issue.status_id,
+              :new_status_id => step.issue_status_id).
+        distinct.pluck(:role_id)
       return [] if role_ids.empty?
 
       User.active.
@@ -117,16 +117,6 @@ class ApprovalMailer < Mailer
         where(:member_roles => {:role_id => role_ids}).
         distinct.
         to_a
-    end
-
-    # A step assigned to "whoever the issue is assigned to". A group in that
-    # field stands for its members, as it does everywhere else in Redmine.
-    def assignee_candidates(issue)
-      assignee = issue.assigned_to
-      return [] if assignee.nil?
-      return assignee.users.active.to_a if assignee.is_a?(Group)
-
-      assignee.active? ? [assignee] : []
     end
 
     # Being asked to sign is a direct request rather than a subscription, so
@@ -141,26 +131,13 @@ class ApprovalMailer < Mailer
       issue.visible?(user) && issue.can_approve?(user)
     end
 
-    # An extension step always names its approver -- the model refuses to save
+    # An extension step always lists its approvers -- the model refuses to save
     # one that does not -- so the candidate set is already the narrow one and
     # there is no workflow transition to widen it back out.
     def extension_recipients(extension, step, actor = nil)
       issue = extension.issue
-      candidates =
-        if step.approver_user_id.present?
-          Array(User.active.find_by_id(step.approver_user_id))
-        elsif step.approver_dynamic.present?
-          assignee_candidates(issue)
-        elsif step.approver_role_id.present?
-          User.active.
-            joins(:members => :member_roles).
-            where(:members => {:project_id => issue.project_id}).
-            where(:member_roles => {:role_id => step.approver_role_id}).
-            distinct.
-            to_a
-        else
-          []
-        end
+      candidates = step.open_approvers(extension.approval_step_signatures).
+                   flat_map {|approver| approver.users_for(issue)}.uniq
 
       candidates.select do |user|
         next false if actor && user.id == actor.id

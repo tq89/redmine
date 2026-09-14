@@ -8,7 +8,7 @@
 
 <p class="info"><%= l(:text_project_approval_routes_hint) %></p>
 
-<% all_routes = @project.approval_routes.includes(:tracker, :steps => [:issue_status, :approver_role, :approver_user]) %>
+<% all_routes = @project.approval_routes.includes(:trackers, :steps => [:issue_status, {:approvers => [:approver_role, :approver_user]}]) %>
 <% routes = all_routes.reject(&:extension?) %>
 <% extension_routes = all_routes.select(&:extension?) %>
 <% if routes.any? %>
@@ -16,7 +16,7 @@
     <thead>
       <tr>
         <th><%= l(:field_name) %></th>
-        <th><%= l(:label_tracker) %></th>
+        <th><%= l(:label_tracker_plural) %></th>
         <th><%= l(:label_approval_step_plural) %></th>
         <th><%= l(:field_active) %></th>
         <th></th>
@@ -26,7 +26,7 @@
       <% routes.each do |route| %>
         <tr>
           <td><%= link_to h(route.name), edit_project_approval_route_path(@project, route) %></td>
-          <td><%= h route.tracker&.name %></td>
+          <td><%= h route.tracker_names.join(', ') %></td>
           <td>
             <ol class="approval-route-summary">
               <% route.steps.each do |step| %>
@@ -64,7 +64,7 @@
     <thead>
       <tr>
         <th><%= l(:field_name) %></th>
-        <th><%= l(:label_tracker) %></th>
+        <th><%= l(:label_tracker_plural) %></th>
         <th><%= l(:label_approval_step_plural) %></th>
         <th><%= l(:field_active) %></th>
         <th></th>
@@ -74,7 +74,7 @@
       <% extension_routes.each do |route| %>
         <tr>
           <td><%= link_to h(route.name), edit_project_approval_route_path(@project, route) %></td>
-          <td><%= h route.tracker&.name %></td>
+          <td><%= h route.tracker_names.join(', ') %></td>
           <td>
             <ol class="approval-route-summary">
               <% route.steps.each do |step| %>

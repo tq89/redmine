@@ -9,6 +9,11 @@ en:
   label_approval_step: "Approval step"
   label_approval_step_plural: "Approval steps"
   label_approval_step_add: "Add a step"
+  label_approval_mode: "Signing"
+  label_approval_mode_any: "Any one of them (OR)"
+  label_approval_mode_all: "All of them, in order (AND)"
+  label_approval_mode_join_any: "or"
+  label_approval_mode_join_all: "then"
   label_approval_step_done: "Signed"
   label_approval_step_current: "Awaiting signature"
   label_approval_step_pending: "Not reached yet"
@@ -23,6 +28,7 @@ en:
   label_order: "Order"
   label_all_projects: "All projects"
   label_approver: "Approver"
+  label_approver_plural: "Approvers"
   label_approver_anyone: "(follow the workflow)"
   label_approver_dynamic: "From the issue"
   label_approver_assignee: "Assignee"
@@ -46,7 +52,7 @@ en:
   text_confirm_quick_sign: "Approve and move to \"%{status}\"?"
   text_project_approval_routes_hint: "Routes declared here apply to this project only."
   text_routes_moved_to_project_settings: "Approval routes are configured in each project's Settings, under the \"Approval routes\" tab."
-  text_approver_hint: "Each step has one approver: a role, one person, or \"Assignee\" — whoever the issue is assigned to at the time. Left empty, anyone the workflow allows may sign. Once set, only they see the sign button, the reminder and the email."
+  text_approver_hint: "Add as many approvers as the step needs: a role, a person, or \"Assignee\" — whoever the issue is assigned to at the time. Drag the chips to change the order. Left empty, anyone the workflow allows may sign. Once listed, only those approvers see the sign button, the reminder and the email."
   text_extension_approver_hint: "An extension step has no status behind it, so there is no workflow transition to decide who may sign. Every step must name an approver."
   text_button_label_hint: "Wording of the step's action button, e.g. \"Submit\" or \"Approve\". Empty falls back to \"Approve\"."
   label_pending_approval_plural: "Issues awaiting my signature"
@@ -58,6 +64,7 @@ en:
   button_reject_approval: "Reject"
 
   notice_approval_signed: "Step signed."
+  notice_approval_signed_waiting: "Signed. This step is still waiting on %{name}."
   notice_approval_rejected: "Rejected and sent back one step."
 
   error_approval_already_completed: "The approval route is already complete, there is no step left to sign."
@@ -70,6 +77,8 @@ en:
   text_approval_route_project_hint: "Leave blank to apply to every project. A route bound to a project takes precedence over a global one for the same tracker."
   text_rejected_status_hint: "Status the issue returns to when rejected at the very first step."
   text_approval_step_hint: "Steps run in ascending order. Permission to sign a step is exactly the permission to move the issue into that step's status, set in Administration → Workflow."
+  text_approval_mode_hint: "With \"Any one of them\" the first signature from anybody on the list finishes the step. With \"All of them\" every name has to sign, in the order the chips sit in, and the issue only moves once the last one has."
+  text_route_trackers_hint: "The route governs issues of every tracker listed here. Drag is off: order carries no meaning for trackers."
 
   label_issue_extension: "Extension"
   label_issue_extension_plural: "Due date extensions"
@@ -132,10 +141,13 @@ en:
       models:
         approval_route_step:
           attributes:
-            approver_user_id:
-              only_one_approver_allowed: "cannot be set together with a role"
             base:
-              extension_step_needs_approver: "An extension step must name the role or the person who signs it."
+              extension_step_needs_approver: "An extension step must list at least one approver."
+        approval_route_approver:
+          attributes:
+            base:
+              approver_missing: "must be a role, a person or the assignee"
+              approver_ambiguous: "must be only one of a role, a person or the assignee"
         issue_extension:
           attributes:
             new_due_date:

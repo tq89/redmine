@@ -21,9 +21,10 @@ namespace :redmine do
     task :backfill => :environment do
       dry_run = ENV['DRY_RUN'].present?
       # select rather than pluck: one query with a subselect, not two.
-      scope = Issue.where(
-        :tracker_id => ApprovalRoute.active.of_kind(ApprovalRoute::ISSUE_KIND).select(:tracker_id)
-      )
+      covered = ApprovalRouteTracker.
+                where(:approval_route_id => ApprovalRoute.active.of_kind(ApprovalRoute::ISSUE_KIND).select(:id)).
+                select(:tracker_id)
+      scope = Issue.where(:tracker_id => covered)
       if ENV['PROJECT'].present?
         project = Project.find_by_identifier(ENV['PROJECT']) || Project.find_by_id(ENV['PROJECT'])
         abort "Unknown project #{ENV['PROJECT']}" if project.nil?

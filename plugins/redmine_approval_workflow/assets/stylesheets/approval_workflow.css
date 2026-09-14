@@ -61,6 +61,47 @@ ol.extension-steps .approval-rejected { color: #b00; font-weight: bold; }
 .extension-status-rejected { background: #fbe6e6; color: #b00;    border: 1px solid #e0a0a0; }
 
 table.approval-step-form input[type=text] { width: 100%; }
+table.approval-step-form td { vertical-align: top; }
+table.approval-step-form td.approval-step-approvers { min-width: 260px; }
+
+/* Chip picker: what you chose stays in a row you can reorder or throw away. */
+.chip-picker .chip-list {
+  list-style: none;
+  margin: 0 0 4px 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 4px;
+}
+.chip-picker .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #eef3f8;
+  border: 1px solid #c6d6e4;
+  border-radius: 12px;
+  padding: 1px 4px 1px 8px;
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+.chip-picker-sortable .chip { cursor: grab; }
+.chip-picker .chip.chip-dragging { opacity: 0.45; }
+.chip-picker .chip-grip { color: #8aa4bd; letter-spacing: -1px; }
+.chip-picker .chip-remove {
+  color: #8a8a8a;
+  text-decoration: none;
+  font-size: 1.1em;
+  line-height: 1;
+  padding: 0 4px;
+}
+.chip-picker .chip-remove:hover { color: #b00; }
+.chip-picker .chip-add-row { display: inline-flex; align-items: center; gap: 6px; }
+.chip-picker .chip-source { max-width: 190px; }
+
+/* The chain summary joins names with "or" / "then", so the separator has to
+   read differently from the names themselves. */
+.approval-assignee { white-space: normal; }
 
 /* Chain summary and buttons inside Redmine's floating issue header. The header
    is a flex row whose .subject grows, so an auto start-margin parks this at

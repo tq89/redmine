@@ -102,7 +102,7 @@ class NotificationClearingTest < ActiveSupport::TestCase
 
   def test_clears_when_the_step_is_reassigned_to_someone_else
     assert pending?
-    @route.step_at(0).update!(:approver_user_id => 3)
+    @route.step_at(0).update!(:approver_tokens => ['user:3'])
 
     assert_not pending?, 'a step handed to somebody else is no longer mine'
   end

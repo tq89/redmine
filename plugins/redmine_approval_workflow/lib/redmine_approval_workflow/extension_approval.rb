@@ -24,6 +24,7 @@ module RedmineApprovalWorkflow
           :issue_extension_id => extension.id,
           :approval_route_id => extension.approval_route_id,
           :approval_route_step_id => step.id,
+          :approval_route_approver => extension.approval_approver_for(user),
           :step_position => position,
           :step_name => step.name,
           :user_id => user.id,
@@ -33,6 +34,8 @@ module RedmineApprovalWorkflow
         extension.approval_signatures.reset
 
         if approve
+          # A step that wants every signature on its list keeps the request
+          # where it is until it has them, so this only fires at the very end.
           apply(extension, user) if extension.approval_position >= extension.approval_route.step_count
         else
           # update_columns, not update!: the limit validation would run again,
