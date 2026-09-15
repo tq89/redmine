@@ -135,6 +135,23 @@ trong bộ nhớ.
 
 Quản trị viên có thể tắt chuông (Quản trị → Plugins → Cấu hình) nếu máy chủ yếu.
 
+## Vị trí panel trên trang công việc
+
+Khung lưu trình ký và khung gia hạn nằm ở **cuối trang công việc**, dưới phần
+lịch sử và dưới ô nhập ghi chú. Trang đọc theo đúng thứ tự công việc diễn ra:
+xem nội dung → nhập thuyết minh → rồi trình ký.
+
+`issues/show.html.erb` không có hook nào ở dưới đó — hook cuối của nó nằm ngay
+dưới phần mô tả, tức là **trên** cả tác vụ con, lịch sử lẫn ô ghi chú. Nhưng
+`view_layouts_base_content` render ngay sau toàn bộ nội dung trang, bên trong
+`#content`, đúng chỗ cần. Dùng hook đó nên không phải dời một khối markup lớn
+bằng script như nút chuông, và vẫn không đụng file core nào.
+
+Hook này bắn trên **mọi** trang, nên listener chặn lại ngay: chỉ render khi
+controller là `IssuesController` và action là `show`. Có test đi qua trang dự
+án, danh sách công việc, trang nhập thời gian và trang sửa công việc để chắc
+panel không lọt ra chỗ khác.
+
 ## Thanh nổi khi cuộn trang công việc
 
 Redmine 7 có sẵn một thanh ngang cố định trên đầu trang công việc
@@ -471,4 +488,4 @@ chỗ: trong journal và trong chính bản ghi chữ ký (hiện trên panel l�
 bundle exec rails test plugins/redmine_approval_workflow/test RAILS_ENV=test
 ```
 
-271 test, 1046 assertion.
+274 test, 1071 assertion.

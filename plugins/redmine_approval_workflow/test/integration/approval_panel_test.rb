@@ -392,6 +392,54 @@ class ApprovalPanelTest < Redmine::IntegrationTest
                   :text => /#{User.find(2).name}.+#{User.find(3).name}/
   end
 
+  # --- where the panel sits on the page --------------------------------------
+
+  # The point of the move: read the issue, write your note, then sign. So the
+  # panel has to come after the history and after the note field, not under the
+  # description where it used to be.
+  def test_the_panel_sits_below_the_history_and_the_note_field
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    body = @response.body
+    panel = body.index('class="approval-workflow box"')
+    assert panel, 'the panel must be on the page'
+    assert panel > body.index('id="history"'), 'the panel belongs below the history'
+    assert panel > body.index('id="update"'), 'and below the note field'
+    assert panel > body.index('id="issue_description_wiki"'),
+           'not under the description, where it used to be'
+  end
+
+  def test_the_panel_is_inside_the_content_area
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select 'div#content div.approval-workflow'
+  end
+
+  # The hook it now uses fires on every page, so the guard has to hold.
+  def test_the_panel_stays_off_other_pages
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    log_user('jsmith', 'jsmith')
+
+    ["/projects/#{@issue.project.identifier}",
+     "/issues",
+     "/issues/#{@issue.id}/time_entries/new",
+     "/issues/#{@issue.id}/edit"].each do |path|
+      get path
+      assert_select 'div.approval-workflow', 0,
+                    "the panel must not render on #{path}"
+      assert_select 'div.issue-extensions', 0,
+                    "nor the extension box on #{path}"
+    end
+  end
+
   # --- handing the issue over ------------------------------------------------
 
   def test_the_form_offers_the_handover_checkbox_on_an_issue_route
