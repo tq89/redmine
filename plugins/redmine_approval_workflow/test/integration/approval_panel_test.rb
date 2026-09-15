@@ -440,6 +440,35 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     end
   end
 
+  # Everything this plugin renders comes from a layout hook, so anything it
+  # raises would take the whole page down -- and for the bell, every page on
+  # the instance. It must cost the panel, and nothing else.
+  def test_a_broken_panel_does_not_take_the_issue_page_down
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    Issue.any_instance.stubs(:approval_route?).raises(StandardError, 'boom')
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select 'div#content'
+    assert_select 'div.approval-workflow', 0
+  end
+
+  # The bell renders on EVERY page. A failure there used to 500 the whole
+  # instance for everybody, which is far worse than losing the bell.
+  def test_a_broken_bell_does_not_take_every_page_down
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    RedmineApprovalWorkflow::PendingApprovals.stubs(:for_user).raises(StandardError, 'boom')
+    log_user('jsmith', 'jsmith')
+
+    ['/', "/projects/#{@issue.project.identifier}", "/issues/#{@issue.id}"].each do |path|
+      get path
+      assert_response :success, "#{path} must survive a broken bell"
+    end
+    assert_select '#approval-bell', 0
+  end
+
   # --- handing the issue over ------------------------------------------------
 
   def test_the_form_offers_the_handover_checkbox_on_an_issue_route

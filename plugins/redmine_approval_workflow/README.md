@@ -152,6 +152,26 @@ controller là `IssuesController` và action là `show`. Có test đi qua trang 
 án, danh sách công việc, trang nhập thời gian và trang sửa công việc để chắc
 panel không lọt ra chỗ khác.
 
+## Hỏng phần nào chỉ mất phần đó
+
+Mọi thứ plugin vẽ thêm vào trang đều render từ **hook của layout**: panel qua
+`view_layouts_base_content`, chuông và dòng chân trang qua
+`view_layouts_base_body_bottom`, thẻ CSS qua `view_layouts_base_html_head`.
+Một ngoại lệ ném ra trong đó sẽ kéo **cả trang** xuống — riêng cái chuông thì
+là **mọi trang, với mọi người**, vì nó render trên trang nào cũng có.
+
+Nên cả ba hook đều được bọc lại: lỗi được **ghi log kèm backtrace** rồi render
+rỗng. Redmine vẫn đứng, chỉ mất đúng phần bị hỏng.
+
+Tìm lỗi trong log bằng tiền tố:
+
+```bash
+grep -A15 "\[redmine_approval_workflow\]" log/production.log | tail -40
+```
+
+`ApprovalPanelTest` ghim cả hai chiều: panel hỏng thì trang công việc vẫn 200,
+chuông hỏng thì trang chủ, trang dự án và trang công việc đều vẫn 200.
+
 ## Thanh nổi khi cuộn trang công việc
 
 Redmine 7 có sẵn một thanh ngang cố định trên đầu trang công việc
@@ -488,4 +508,4 @@ chỗ: trong journal và trong chính bản ghi chữ ký (hiện trên panel l�
 bundle exec rails test plugins/redmine_approval_workflow/test RAILS_ENV=test
 ```
 
-274 test, 1071 assertion.
+276 test, 1085 assertion.
