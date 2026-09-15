@@ -152,6 +152,13 @@ controller là `IssuesController` và action là `show`. Có test đi qua trang 
 án, danh sách công việc, trang nhập thời gian và trang sửa công việc để chắc
 panel không lọt ra chỗ khác.
 
+Một chi tiết còn lại: dòng *"Định dạng khác của trang này: PDF | Atom"* là câu
+cuối của `issues/show.html.erb`, tức nằm **trong** `yield`, nên panel render sau
+`yield` sẽ rơi xuống dưới nó. Giữa hai chỗ đó không có hook nào, nên một đoạn
+script ngắn nhấc panel lên **trên** dòng ấy. Không tìm thấy thì không dời —
+panel ở nguyên cuối trang, vẫn dùng được. Hai bọc `div` và `p.other-formats`
+đều có test ghim.
+
 ## Cập nhật mà quên chạy migration
 
 Cách triển khai là copy thư mục plugin, nên rất dễ quên bước
@@ -532,4 +539,4 @@ chỗ: trong journal và trong chính bản ghi chữ ký (hiện trên panel l�
 bundle exec rails test plugins/redmine_approval_workflow/test RAILS_ENV=test
 ```
 
-283 test, 1121 assertion.
+285 test, 1134 assertion.

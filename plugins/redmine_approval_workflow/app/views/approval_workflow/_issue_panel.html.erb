@@ -6,6 +6,9 @@
                   User.current.allowed_to?(:view_approval_workflow, issue.project)
   show_extension = visible && (issue.issue_extensions.any? || issue.extendable_by?(User.current))
 %>
+<% if show_approval || show_extension %>
+<%# One wrapper so both boxes travel together when the script below moves them. %>
+<div id="approval-issue-panel">
 <% if show_approval %>
   <div class="approval-workflow box">
     <h3><%= l(:label_approval_route) %>: <%= h issue.approval_route.name %></h3>
@@ -162,8 +165,8 @@
     <% end %>
   </div>
 <% end %>
+</div>
 
-<% if show_approval || show_extension %>
   <%# Scrolled past the panel, the step and its buttons follow the reader in
       Redmine's own floating header. Rendered here, hidden, then moved -- core
       offers no hook inside #sticky-issue-header, and patching the layout is
@@ -173,6 +176,17 @@
   </div>
   <script>
     (function () {
+      // The panel is rendered after the whole page, which puts it below the
+      // "other formats" line that closes issues/show.html.erb. That line is
+      // inside the page content and the panel is rendered after it, so there
+      // is no hook between the two -- the panel is lifted above it here.
+      // Nothing found, nothing moved: it simply stays at the foot of the page.
+      var panel = document.getElementById('approval-issue-panel');
+      var formats = document.querySelector('#content p.other-formats');
+      if (panel && formats && formats.parentNode) {
+        formats.parentNode.insertBefore(panel, formats);
+      }
+
       var staging = document.getElementById('approval-sticky-staging');
       if (!staging) { return; }
 

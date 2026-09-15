@@ -462,7 +462,34 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     get "/issues/#{@issue.id}"
 
     assert_response :success
-    assert_select 'div#content div.approval-workflow'
+    assert_select 'div#content div#approval-issue-panel div.approval-workflow'
+  end
+
+  # The "other formats" line closes issues/show.html.erb, and the panel renders
+  # after the whole page, so it lands below it. There is no hook between the
+  # two; the script lifts the panel above that line. Pin both halves: the one
+  # wrapper that gets moved, and the core element it is moved in front of.
+  def test_the_panel_is_lifted_above_the_other_formats_line
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select 'div#approval-issue-panel', 1
+    assert_select '#content p.other-formats', 1, 'core still renders the line we move above'
+    assert_include "document.querySelector('#content p.other-formats')", @response.body
+    assert_include "formats.parentNode.insertBefore(panel, formats)", @response.body
+  end
+
+  def test_no_empty_wrapper_when_there_is_nothing_to_show
+    Role.find(1).remove_permission!(:view_approval_workflow, :extend_issue_due_date)
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select 'div#approval-issue-panel', 0
   end
 
   # The hook it now uses fires on every page, so the guard has to hold.
