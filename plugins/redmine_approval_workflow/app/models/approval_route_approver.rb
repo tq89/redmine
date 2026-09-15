@@ -8,7 +8,8 @@
 # permits, is being asked.
 class ApprovalRouteApprover < ApplicationRecord
   ASSIGNEE = 'assignee'
-  DYNAMIC_APPROVERS = [ASSIGNEE].freeze
+  AUTHOR = 'author'
+  DYNAMIC_APPROVERS = [ASSIGNEE, AUTHOR].freeze
 
   belongs_to :approval_route_step, :inverse_of => :approvers
   belongs_to :approver_role, :class_name => 'Role', :optional => true
@@ -44,9 +45,12 @@ class ApprovalRouteApprover < ApplicationRecord
     return false unless user.is_a?(User) && user.logged?
     return user.id == approver_user_id if approver_user_id.present?
 
-    if approver_dynamic == ASSIGNEE
+    case approver_dynamic
+    when ASSIGNEE
       return issue.assigned_to_id.present? &&
              (user.id == issue.assigned_to_id || user.group_ids.include?(issue.assigned_to_id))
+    when AUTHOR
+      return issue.author_id.present? && user.id == issue.author_id
     end
 
     return false if approver_role_id.blank?
@@ -58,7 +62,8 @@ class ApprovalRouteApprover < ApplicationRecord
   # member of the project holding it.
   def users_for(issue)
     return Array(User.active.find_by_id(approver_user_id)) if approver_user_id.present?
-    return assignee_users(issue) if approver_dynamic.present?
+    return assignee_users(issue) if approver_dynamic == ASSIGNEE
+    return Array(issue.author).select(&:active?) if approver_dynamic == AUTHOR
     return [] if approver_role_id.blank?
 
     User.active.

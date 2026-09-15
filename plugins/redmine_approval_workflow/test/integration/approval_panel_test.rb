@@ -434,6 +434,77 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     assert_select "a[href=?]", "/projects/#{@issue.project.identifier}/approval_routes/new"
   end
 
+  # --- signing out of turn ----------------------------------------------------
+
+  def test_the_panel_offers_a_button_on_a_step_that_can_be_signed_out_of_turn
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    route.step_at(1).update!(:allow_skip => true)
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select 'form[action=?]',
+                  "/issues/#{@issue.id}/approvals?decision=approve&step_id=#{route.step_at(1).id}"
+    assert_select 'div.approval-workflow .approval-skip-button', 1
+  end
+
+  def test_no_such_button_when_the_step_is_not_skippable
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select 'form[action*=?]', "step_id=#{route.step_at(1).id}", 0
+  end
+
+  # A step jumped over reads "skipped", not "signed" -- the chain is an audit
+  # trail before it is a progress bar.
+  def test_a_jumped_step_shows_as_skipped_not_signed
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    route.step_at(1).update!(:allow_skip => true)
+    log_user('jsmith', 'jsmith')
+
+    post "/issues/#{@issue.id}/approvals",
+         :params => {:decision => 'approve', :step_id => route.step_at(1).id}
+    assert_redirected_to "/issues/#{@issue.id}"
+
+    get "/issues/#{@issue.id}"
+    assert_response :success
+    assert_select 'div.approval-workflow li.approval-step-skipped', 1
+    assert_select 'div.approval-workflow li.approval-step-done', 1
+  end
+
+  def test_the_route_form_offers_the_skip_checkbox
+    Role.find(1).add_permission!(:manage_approval_routes)
+    identifier = @issue.project.identifier
+    log_user('jsmith', 'jsmith')
+
+    get "/projects/#{identifier}/approval_routes/new"
+    assert_response :success
+    assert_select 'input[type=checkbox][name=?]',
+                  'approval_route[steps_attributes][0][allow_skip]'
+
+    get "/projects/#{identifier}/approval_routes/new?kind=extension"
+    assert_response :success
+    assert_select 'input[type=checkbox][name=?]',
+                  'approval_route[steps_attributes][0][allow_skip]', 0
+  end
+
+  def test_the_approver_picker_offers_the_author
+    Role.find(1).add_permission!(:manage_approval_routes)
+    log_user('jsmith', 'jsmith')
+
+    get "/projects/#{@issue.project.identifier}/approval_routes/new"
+
+    assert_response :success
+    assert_select 'select.chip-source' do
+      assert_select 'option[value=?]', 'dynamic:author'
+      assert_select 'option[value=?]', 'dynamic:assignee'
+    end
+  end
+
   # --- where the panel sits on the page --------------------------------------
 
   # The point of the move: read the issue, write your note, then sign. So the

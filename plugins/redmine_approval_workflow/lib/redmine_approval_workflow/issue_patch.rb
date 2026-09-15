@@ -127,12 +127,36 @@ module RedmineApprovalWorkflow
     #
     # When +step+ lists approvers, that narrows the result further; it can
     # never let somebody sign a transition the workflow denies them.
-    def approval_signable_by?(user, target_status, step = nil)
+    # +signatures+ is what the step being signed has already collected. It
+    # defaults to the pending step's, which is right for the ordinary path; a
+    # step being skipped to has collected nothing, so the caller passes [].
+    def approval_signable_by?(user, target_status, step = nil, signatures = approval_step_signatures)
       return false if target_status.nil?
       return false unless attributes_editable?(user)
-      return false if step && !step.signable_by?(user, self, approval_step_signatures)
+      return false if step && !step.signable_by?(user, self, signatures)
 
       new_statuses_allowed_to(user).include?(target_status)
+    end
+
+    # Steps further along the chain that may be signed right now without
+    # working through the ones in between. A step has to be marked skippable,
+    # and the workflow still has to allow the move from where the issue is --
+    # skipping is a shortcut through the chain, never around the workflow.
+    def approval_skippable_steps(user = User.current)
+      return [] unless approval_route?
+
+      position = approval_position
+      approval_route.steps.select do |step|
+        step.position > position && step.skippable? &&
+          approval_signable_by?(user, step.issue_status, step, [])
+      end
+    end
+
+    def approval_can_skip_to?(user, step)
+      return false unless approval_route? && step&.skippable?
+      return false unless step.position > approval_position
+
+      approval_signable_by?(user, step.issue_status, step, [])
     end
 
     # The approver slot +user+ is filling on the pending step, recorded on the

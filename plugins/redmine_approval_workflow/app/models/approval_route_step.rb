@@ -48,6 +48,13 @@ class ApprovalRouteStep < ApplicationRecord
     assign_signer? && !extension_step?
   end
 
+  # A step that may be signed without waiting for the ones before it, when the
+  # workflow allows the move from wherever the issue currently is. That is what
+  # lets somebody take a job on without being given it first.
+  def skippable?
+    allow_skip? && !extension_step?
+  end
+
   # "Giao việc": the signature that finishes this step makes the signer the
   # issue's author -- the person who handed the work out. Useful on an issue
   # raised by something other than a person, a recurring-task generator say,

@@ -333,10 +333,10 @@ Mỗi **bước** khai báo:
 |---|---|
 | Tên bước | ví dụ "Trưởng bộ phận duyệt" |
 | Trạng thái sau khi ký | trạng thái công việc chuyển sang — **chỉ có ở lưu trình công việc** |
-| **Người ký** | **danh sách** có thứ tự: **Người thực hiện**, các **vai trò**, các **người** cụ thể; **bắt buộc** với bước gia hạn |
+| **Người ký** | **danh sách** có thứ tự: **Người thực hiện**, **Tác giả**, các **vai trò**, các **người** cụ thể; **bắt buộc** với bước gia hạn |
 | **Cách ký** | *Một người bất kỳ (OR)* hoặc *Tất cả, theo thứ tự (AND)* |
 | **Nhãn nút** | chữ trên nút thao tác, ví dụ "Trình ký", "Phê duyệt"; để trống = "Ký duyệt" |
-| **Khi ký xong** | *Giao việc cho người ký* (→ Người thực hiện) và/hoặc *Đặt người ký làm tác giả* (→ Tác giả) |
+| **Khi ký xong** | *Cho ký vượt*, *Giao việc cho người ký* (→ Người thực hiện), *Đặt người ký làm tác giả* (→ Tác giả) |
 
 Bảng bước có nút **"Thêm bước"** để thêm dòng, nên lưu trình dài bao nhiêu bước
 cũng khai báo được. Dòng mới tự nhận số thứ tự kế tiếp; khi lưu, thứ tự được
@@ -412,6 +412,50 @@ không đổi gì; thay đổi nằm chung một mục lịch sử với lần �
 > chỉ dành cho tác giả, **người mới có thể được thêm quyền trên công việc, còn
 > người cũ thì mất**. Ô này viết ra đúng như ông yêu cầu, nhưng hệ quả đó là
 > thật, nên tôi nói rõ ở đây và trong phần gợi ý ngay trên form.
+
+### Người ký lấy theo công việc: Người thực hiện và Tác giả
+
+Ngoài vai trò và người cụ thể, danh sách người ký còn nhận hai mục **lấy theo
+công việc**:
+
+| Mục | Là ai |
+|---|---|
+| **Người thực hiện** | người (hoặc nhóm) đang được giao công việc lúc ký |
+| **Tác giả** | người đứng tên tạo công việc lúc ký |
+
+Cả hai đều **đi theo công việc**: đổi người thực hiện hay đổi tác giả là đổi
+luôn người ký được. Và cả hai vẫn **chỉ thu hẹp** — có tên cũng phải được luồng
+công việc cho chuyển trạng thái thì mới ký được.
+
+Hai mục này ăn khớp với hai ô *Khi ký xong*: bước "Nhận việc" có thể vừa để
+*Người thực hiện* ký vừa *Giao việc cho người ký*, bước "Giao việc" có thể vừa
+để *Tác giả* ký vừa *Đặt người ký làm tác giả*.
+
+### "Cho ký vượt" — tự nhận việc không cần ai giao
+
+Tick **Cho ký vượt** ở một bước thì bước đó ký được **không cần chờ các bước
+trước**, miễn là luồng công việc cho phép chuyển từ trạng thái công việc **đang
+đứng** sang trạng thái đích của bước đó. Ví dụ đúng của ông: nhân viên không cần
+ai *Giao việc* vẫn bấm thẳng *Nhận việc* để làm.
+
+Trên trang công việc, mỗi bước ký vượt được sẽ có nút nhỏ ngay trên dòng bước
+đó, kèm hộp xác nhận nói rõ sẽ bỏ qua các bước trước.
+
+Ba điều quan trọng:
+
+- **Chỉ là lối tắt trong lưu trình, không phải lối tắt qua mặt luồng công
+  việc.** Không có chuyển trạng thái thì không ký vượt được, y như thường.
+- **Danh sách người ký của bước đó vẫn áp dụng đủ.** Ký vượt không mở rộng cho ai.
+- **Chỉ đi tới, không lùi.** Bước đã qua rồi thì không ký lại được.
+
+Bước bị nhảy qua hiện là **"Đã bỏ qua"** (chữ nghiêng, xám), **không** phải "Đã
+ký" — không có chữ ký nào được tạo cho nó. Lưu trình ký là hồ sơ kiểm toán trước
+khi là thanh tiến độ.
+
+> Một chi tiết bắt được lúc viết test, đáng ghi lại: bản đầu tiên khi từ chối
+> ký vượt thì **lặng lẽ ký bước hiện tại** thay thế. Người dùng bấm "Nhận việc"
+> mà hệ thống ký "Giao việc" hộ — tệ hơn là từ chối thẳng. Nay nút đã chỉ đích
+> danh bước nào thì hoặc ký đúng bước đó, hoặc **từ chối**, không có đường thứ ba.
 
 ### Thẻ: chọn xong giữ lại, kéo thả đổi thứ tự, bấm × để bỏ
 
@@ -562,4 +606,4 @@ chỗ: trong journal và trong chính bản ghi chữ ký (hiện trên panel l�
 bundle exec rails test plugins/redmine_approval_workflow/test RAILS_ENV=test
 ```
 
-292 test, 1157 assertion.
+315 test, 1242 assertion.

@@ -5,7 +5,9 @@ module ApprovalWorkflowHelper
   def approval_step_state(issue, step)
     position = issue.approval_position
     if step.position < position
-      :done
+      # A step the chain has moved past without anybody signing it was jumped
+      # over, and saying "signed" there would be a lie in an audit trail.
+      last_signature_for(issue, step) ? :done : :skipped
     elsif step.position == position
       :current
     else
@@ -20,6 +22,7 @@ module ApprovalWorkflowHelper
   def approval_step_icon(state)
     case state
     when :done    then sprite_icon('checked', l(:label_approval_step_done))
+    when :skipped then sprite_icon('arrow-right', l(:label_approval_step_skipped))
     when :current then sprite_icon('time', l(:label_approval_step_current))
     else               sprite_icon('circle-dot-filled', l(:label_approval_step_pending))
     end

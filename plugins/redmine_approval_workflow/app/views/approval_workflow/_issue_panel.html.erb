@@ -31,6 +31,14 @@
           <% approval_step_effect_labels(step).each do |effect| %>
             <span class="approval-assign-badge"><%= h effect %></span>
           <% end %>
+          <% if issue.approval_can_skip_to?(User.current, step) %>
+            <%= button_to step.action_label,
+                          issue_approvals_path(issue, :decision => 'approve', :step_id => step.id),
+                          :method => :post,
+                          :class => 'approval-skip-button',
+                          :data => {:confirm => l(:text_confirm_skip_sign,
+                                                  :status => step.issue_status&.name)} %>
+          <% end %>
           <% if signature %>
             <span class="approval-step-signature <%= 'approval-derived' if signature.derived? %>">
               <%= link_to_user signature.user %>,

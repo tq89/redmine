@@ -40,16 +40,15 @@ class ApprovalsController < ApplicationController
     # list. Leaving it out authorised the transition alone, so somebody who
     # held it could sign a step listed to another person by posting here --
     # the buttons were hidden from them, the endpoint was not.
-    unless @issue.approval_signable_by?(User.current, @target_status, @step)
+    unless @issue.approval_signable_by?(User.current, @target_status, @step, @collected)
       return deny_access
     end
 
-    collected = @issue.approval_step_signatures
     @signature = ApprovalSignature.new(
       :issue => @issue,
       :approval_route => @route,
       :approval_route_step => @step,
-      :approval_route_approver => @issue.approval_approver_for(User.current),
+      :approval_route_approver => @step&.approver_for(User.current, @issue, @collected),
       :step_position => @position,
       :step_name => @step&.name,
       :user => User.current,
@@ -63,7 +62,7 @@ class ApprovalsController < ApplicationController
     # until it has them all. Until then the signature is recorded and the issue
     # stays where it is.
     @completes_step = !@approving || @step.nil? ||
-                      @step.satisfied_by?(collected + [@signature])
+                      @step.satisfied_by?(@collected + [@signature])
 
     ApprovalSignature.transaction do
       if @completes_step
@@ -125,19 +124,48 @@ class ApprovalsController < ApplicationController
 
   def build_decision
     @approving = params[:decision].to_s != 'reject'
-    @position = @issue.approval_position
-    @step = @route.step_at(@position)
-    @target_status = @approving ? @issue.approval_target_status : @issue.approval_reject_target_status
+    current_position = @issue.approval_position
+    requested = requested_step
+    return deny_access if params[:step_id].present? && requested.nil?
 
-    if @approving && @issue.approval_completed?
-      flash[:error] = l(:error_approval_already_completed)
-      return redirect_to issue_path(@issue)
+    if requested && requested.position != current_position
+      # A step other than the one due was asked for. Only a forward, skippable
+      # step this user may sign qualifies; anything else is REFUSED rather than
+      # quietly signing whatever happened to be due instead. The button named a
+      # step, and signing a different one on somebody's behalf would be worse
+      # than refusing.
+      return deny_access unless @approving && @issue.approval_can_skip_to?(User.current, requested)
+
+      # A step reached over the ones before it has collected nothing, so the
+      # "all" bookkeeping starts from empty rather than from the pending step's.
+      @skipping = true
+      @step = requested
+      @position = requested.position
+      @collected = []
+      @target_status = requested.issue_status
+    else
+      @skipping = false
+      @position = current_position
+      @step = @route.step_at(@position)
+      @collected = @issue.approval_step_signatures
+      @target_status = @approving ? @issue.approval_target_status : @issue.approval_reject_target_status
+
+      if @approving && @issue.approval_completed?
+        flash[:error] = l(:error_approval_already_completed)
+        return redirect_to issue_path(@issue)
+      end
     end
 
     if @target_status.nil?
       flash[:error] = l(:error_approval_no_target_status)
       redirect_to issue_path(@issue)
     end
+  end
+
+  def requested_step
+    return nil if params[:step_id].blank?
+
+    @route.steps.detect {|step| step.id == params[:step_id].to_i}
   end
 
   # "Nhận việc": the signature that finishes the step hands the issue to whoever
@@ -180,6 +208,7 @@ class ApprovalsController < ApplicationController
   # A step still collecting signatures says so, and names who it is waiting on.
   def decision_notice
     return l(:notice_approval_rejected) unless @approving
+    return l(:notice_approval_skipped, :step => @step.name) if @completes_step && @skipping
     return l(:notice_approval_signed) if @completes_step
 
     waiting = @issue.reload.current_approval_step&.

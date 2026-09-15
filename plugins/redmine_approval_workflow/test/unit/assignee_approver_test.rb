@@ -97,6 +97,55 @@ class AssigneeApproverTest < ActiveSupport::TestCase
                         @issue.id
   end
 
+  # --- the author as approver -------------------------------------------------
+
+  def test_a_step_can_be_assigned_to_the_author
+    @step.update!(:approver_tokens => ['dynamic:author'])
+    @issue.update_columns(:author_id => 3)
+
+    assert @step.signable_by?(User.find(3), @issue.reload, [])
+    assert_not @step.signable_by?(User.find(2), @issue, [])
+  end
+
+  def test_the_author_still_needs_the_workflow_transition
+    @step.update!(:approver_tokens => ['dynamic:author'])
+    @issue.update_columns(:author_id => 3)
+    WorkflowTransition.where(:tracker_id => @issue.tracker_id, :role_id => 2,
+                             :old_status_id => 1, :new_status_id => 2).delete_all
+
+    assert_not Issue.find(@issue.id).can_approve?(User.find(3))
+  end
+
+  def test_the_author_slot_follows_the_issue
+    @step.update!(:approver_tokens => ['dynamic:author'])
+    @issue.update_columns(:author_id => 2)
+    assert @step.signable_by?(User.find(2), @issue.reload, [])
+
+    @issue.update_columns(:author_id => 3)
+    assert_not @step.signable_by?(User.find(2), @issue.reload, [])
+  end
+
+  def test_the_turn_to_sign_mail_goes_to_the_author
+    ActionMailer::Base.deliveries.clear
+    set_plugin_settings('notify_on_pending_approval' => '1')
+    Setting.default_language = 'en'
+    @step.update!(:approver_tokens => ['dynamic:author'])
+    @issue.update_columns(:author_id => 3)
+
+    ApprovalMailer.deliver_approval_pending(Issue.find(@issue.id))
+
+    assert_equal [User.find(3).mail], ActionMailer::Base.deliveries.flat_map(&:to).uniq
+  end
+
+  def test_author_and_assignee_can_both_be_listed
+    @step.update!(:approver_tokens => ['dynamic:author', 'dynamic:assignee'])
+    @issue.update_columns(:author_id => 3, :assigned_to_id => 2)
+    issue = @issue.reload
+
+    assert @step.signable_by?(User.find(3), issue, []), 'the author'
+    assert @step.signable_by?(User.find(2), issue, []), 'and the assignee'
+  end
+
   # --- the approver entry ---------------------------------------------------
 
   def test_approver_token_round_trips

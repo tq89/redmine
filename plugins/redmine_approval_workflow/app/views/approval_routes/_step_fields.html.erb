@@ -31,8 +31,10 @@
   <% if @route.extension? %>
     <%= sf.hidden_field :assign_signer, :value => '0' %>
     <%= sf.hidden_field :assign_author, :value => '0' %>
+    <%= sf.hidden_field :allow_skip, :value => '0' %>
   <% else %>
     <td class="approval-step-assign">
+      <label><%= sf.check_box :allow_skip %> <%= l(:label_allow_skip) %></label>
       <label><%= sf.check_box :assign_signer %> <%= l(:label_assign_signer) %></label>
       <label><%= sf.check_box :assign_author %> <%= l(:label_assign_author) %></label>
     </td>

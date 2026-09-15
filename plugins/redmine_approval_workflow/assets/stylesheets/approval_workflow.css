@@ -8,6 +8,25 @@
 .approval-workflow .approval-step-done    { border-left-color: #9fcf9f; }
 .approval-workflow .approval-step-current { border-left-color: #e5a000; background: rgba(229, 160, 0, 0.07); }
 .approval-workflow .approval-step-pending { border-left-color: #ddd; opacity: 0.75; }
+.approval-workflow .approval-step-skipped { border-left-color: #cfcfcf; color: #777; }
+.approval-workflow .approval-step-skipped .approval-step-name { font-weight: normal; font-style: italic; }
+
+/* Signing a step out of turn: a quiet button on the step itself, so it reads
+   as "you may jump to here" rather than competing with the pending step. */
+.approval-workflow .approval-skip-button {
+  display: inline;
+  margin-left: 6px;
+}
+.approval-workflow .approval-skip-button input[type=submit],
+.approval-workflow button.approval-skip-button {
+  background: #eef3f8;
+  border: 1px solid #c6d6e4;
+  color: #1c5b9c;
+  border-radius: 3px;
+  padding: 1px 8px;
+  font-size: 0.85em;
+  cursor: pointer;
+}
 
 .approval-workflow .approval-step-name   { font-weight: bold; margin-right: 4px; }
 .approval-workflow .approval-step-status  { color: #666; }
