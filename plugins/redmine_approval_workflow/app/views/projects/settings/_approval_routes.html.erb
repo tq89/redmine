@@ -1,3 +1,13 @@
+<%# The code asks for columns the database will not have until the migrations
+    are run. Say so plainly and stop, rather than raising on the first step
+    that reads one of them. %>
+<% missing_columns = RedmineApprovalWorkflow::SchemaCheck.missing %>
+<% if missing_columns.any? %>
+  <p class="warning"><%= l(:warning_plugin_migrations_pending) %></p>
+  <pre>bundle exec rake redmine:plugins:migrate RAILS_ENV=production</pre>
+  <p class="info"><%= l(:label_missing_columns) %>: <%= h missing_columns.join(' | ') %></p>
+<% else %>
+
 <div class="contextual">
   <%= link_to sprite_icon('add', l(:label_approval_route_new)),
               new_project_approval_route_path(@project), :class => 'icon icon-add' %>
@@ -104,4 +114,6 @@
   </table>
 <% else %>
   <p class="nodata"><%= l(:label_no_data) %></p>
+<% end %>
+
 <% end %>

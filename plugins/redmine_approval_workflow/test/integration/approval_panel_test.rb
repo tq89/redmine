@@ -392,6 +392,48 @@ class ApprovalPanelTest < Redmine::IntegrationTest
                   :text => /#{User.find(2).name}.+#{User.find(3).name}/
   end
 
+  # --- deployed without its migrations ---------------------------------------
+
+  # Copying the plugin directory and forgetting the migrations leaves the code
+  # asking for columns that are not there. That used to be a 500 on this tab
+  # and a chain panel that silently stopped appearing.
+  def test_the_settings_tab_says_so_when_the_migrations_are_pending
+    Role.find(1).add_permission!(:manage_approval_routes)
+    build_route(:tracker_id => @issue.tracker_id, :project_id => @issue.project_id,
+                :statuses => [2, 3])
+    RedmineApprovalWorkflow::SchemaCheck.stubs(:missing).
+      returns(['approval_route_steps: assign_signer'])
+    log_user('jsmith', 'jsmith')
+
+    get "/projects/#{@issue.project.identifier}/settings/approval_routes"
+
+    assert_response :success
+    # Scoped to this tab: the settings page has other tabs with tables of
+    # their own, and they are none of our business.
+    assert_select '#tab-content-approval_routes' do
+      assert_select 'p.warning'
+      assert_select 'pre', :text => /redmine:plugins:migrate/
+      # Naming the missing column turns "it is broken" into "run this".
+      assert_select 'p.info', :text => /assign_signer/
+      # And none of the markup that would have read the missing columns.
+      assert_select 'table.list', 0
+    end
+  end
+
+  def test_the_settings_tab_is_normal_when_the_schema_is_current
+    Role.find(1).add_permission!(:manage_approval_routes)
+    log_user('jsmith', 'jsmith')
+
+    assert_equal [], RedmineApprovalWorkflow::SchemaCheck.missing,
+                 'the test database is migrated, so nothing should be flagged'
+
+    get "/projects/#{@issue.project.identifier}/settings/approval_routes"
+
+    assert_response :success
+    assert_select 'pre', :text => /redmine:plugins:migrate/, :count => 0
+    assert_select "a[href=?]", "/projects/#{@issue.project.identifier}/approval_routes/new"
+  end
+
   # --- where the panel sits on the page --------------------------------------
 
   # The point of the move: read the issue, write your note, then sign. So the

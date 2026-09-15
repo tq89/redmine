@@ -152,6 +152,30 @@ controller là `IssuesController` và action là `show`. Có test đi qua trang 
 án, danh sách công việc, trang nhập thời gian và trang sửa công việc để chắc
 panel không lọt ra chỗ khác.
 
+## Cập nhật mà quên chạy migration
+
+Cách triển khai là copy thư mục plugin, nên rất dễ quên bước
+`redmine:plugins:migrate`. Khi đó code hỏi những cột chưa có trong DB, và triệu
+chứng rất khó đoán: **500 ở thẻ Lưu trình ký trong Cài đặt dự án**, còn panel
+trên trang công việc thì **im lặng biến mất**.
+
+Nay thẻ cài đặt tự kiểm tra và nói thẳng: hiện cảnh báo, in đúng lệnh cần chạy,
+và liệt kê **những cột đang thiếu**.
+
+Kiểm tra bằng cách hỏi thẳng schema, **không** so số hiệu migration. Redmine ghi
+migration của plugin vào `schema_migrations` dưới dạng `"<n>-<plugin_id>"`, mà
+`rake redmine:plugins:migrate` kết thúc bằng `db:schema:dump` — file `schema.rb`
+không mang các dòng đó, nên lần nào nạp lại schema là sổ sách bị xoá sạch trong
+khi cột vẫn còn nguyên. Đếm version kiểu đó sẽ báo "thiếu migration" trên một
+cài đặt hoàn toàn bình thường, còn tệ hơn cái lỗi nó định bắt.
+
+`SchemaCheck::REQUIRED_COLUMNS` là danh sách viết tay, nên `SchemaCheckTest`
+khẳng định mọi cột trong đó đều có thật trong DB đã migrate — gõ sai một chữ là
+test đỏ, chứ không phải tới production mới lòi ra.
+
+**Vì vậy: lệnh cập nhật luôn có bước migrate.** Chạy thừa cũng không sao, nó tự
+bỏ qua khi không còn gì để chạy.
+
 ## Hỏng phần nào chỉ mất phần đó
 
 Mọi thứ plugin vẽ thêm vào trang đều render từ **hook của layout**: panel qua
@@ -508,4 +532,4 @@ chỗ: trong journal và trong chính bản ghi chữ ký (hiện trên panel l�
 bundle exec rails test plugins/redmine_approval_workflow/test RAILS_ENV=test
 ```
 
-276 test, 1085 assertion.
+283 test, 1121 assertion.

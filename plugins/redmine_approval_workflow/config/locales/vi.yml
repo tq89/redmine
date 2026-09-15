@@ -73,6 +73,8 @@ vi:
   error_approval_already_completed: "Lưu trình ký đã hoàn tất, không còn bước nào để ký."
   error_approval_no_target_status: "Không xác định được trạng thái đích. Hãy kiểm tra cấu hình lưu trình."
 
+  label_missing_columns: "Đang thiếu"
+  warning_plugin_migrations_pending: "Plugin đã cập nhật nhưng chưa chạy migration, nên code đang hỏi những cột chưa có trong cơ sở dữ liệu. Chạy lệnh sau trên máy chủ rồi khởi động lại Redmine:"
   warning_approval_out_of_sync: "Trạng thái hiện tại của công việc không khớp với bước ký gần nhất. Có thể ai đó đã đổi trạng thái thủ công ngoài lưu trình."
   warning_signer_not_assigned_readonly: "Đã ký, nhưng chưa giao việc được: luồng công việc đang khoá trường Người thực hiện với bạn ở trạng thái này."
   warning_signer_not_assignable: "Đã ký, nhưng chưa giao việc được: không thể giao công việc này cho bạn."

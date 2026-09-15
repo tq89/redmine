@@ -72,6 +72,8 @@ en:
   error_approval_already_completed: "The approval route is already complete, there is no step left to sign."
   error_approval_no_target_status: "No target status could be determined. Check the route configuration."
 
+  label_missing_columns: "Missing"
+  warning_plugin_migrations_pending: "The plugin has been updated but its database migrations have not been run, so the code is asking for columns that are not there yet. Run this on the server and restart Redmine:"
   warning_approval_out_of_sync: "The current issue status does not match the last signed step. Someone may have changed the status by hand, outside the route."
   warning_signer_not_assigned_readonly: "Signed, but the issue was not handed over: the workflow makes the assignee read-only for you at this status."
   warning_signer_not_assignable: "Signed, but the issue was not handed over: it cannot be assigned to you."
