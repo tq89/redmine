@@ -68,6 +68,12 @@ class ApprovalsController < ApplicationController
     ApprovalSignature.transaction do
       if @completes_step
         journal = @issue.init_journal(User.current, journal_notes)
+        # Before the status moves, and before the save: field permissions are
+        # read off the status the issue is IN, so checking after the assignment
+        # of @target_status would ask about the wrong status entirely. Being in
+        # the same save keeps the handover in one journal entry with the status
+        # change rather than as a second, separate edit.
+        @assignment_warning = assign_signer_to_issue
         @issue.status = @target_status
         # This save is the signature itself; letting the history reconciler
         # also see it would advance the chain twice for one decision.
@@ -89,6 +95,7 @@ class ApprovalsController < ApplicationController
     ApprovalMailer.deliver_approval_pending(@issue.reload, User.current)
 
     flash[:notice] = decision_notice
+    flash[:warning] = @assignment_warning if @assignment_warning
     redirect_to issue_path(@issue)
   rescue ActiveRecord::RecordInvalid => e
     flash[:error] = e.record.errors.full_messages.join(', ')
@@ -130,6 +137,30 @@ class ApprovalsController < ApplicationController
       flash[:error] = l(:error_approval_no_target_status)
       redirect_to issue_path(@issue)
     end
+  end
+
+  # "Nhận việc": the signature that finishes the step hands the issue to whoever
+  # gave it. Returns a warning to show when the handover could not be made --
+  # never silently: somebody pressed a button labelled "take this job" and is
+  # entitled to know if the job did not move.
+  def assign_signer_to_issue
+    return nil unless @approving
+    return nil unless @step&.assigns_signer?
+    return nil if @issue.assigned_to_id == User.current.id
+
+    # Same principle as everything else here: the workflow's field permissions
+    # decide, not the plugin. A role that may not touch assigned_to at this
+    # status does not get to change it by pressing a different button.
+    if @issue.read_only_attribute_names(User.current).include?('assigned_to_id')
+      return l(:warning_signer_not_assigned_readonly)
+    end
+    # Redmine would reject the save otherwise, taking the signature down with it.
+    unless @issue.assignable_users.include?(User.current)
+      return l(:warning_signer_not_assignable)
+    end
+
+    @issue.assigned_to = User.current
+    nil
   end
 
   # A step still collecting signatures says so, and names who it is waiting on.

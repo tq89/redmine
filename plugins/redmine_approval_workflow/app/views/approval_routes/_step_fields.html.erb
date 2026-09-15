@@ -28,5 +28,12 @@
   </td>
   <td><%= sf.text_field :button_label, :size => 14,
                         :placeholder => l(:button_approve) %></td>
+  <% if @route.extension? %>
+    <%= sf.hidden_field :assign_signer, :value => '0' %>
+  <% else %>
+    <td class="approval-step-assign">
+      <%= sf.check_box :assign_signer %>
+    </td>
+  <% end %>
   <td><%= sf.check_box :_destroy unless sf.object.new_record? %></td>
 </tr>

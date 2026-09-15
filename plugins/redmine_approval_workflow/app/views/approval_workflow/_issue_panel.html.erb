@@ -25,6 +25,10 @@
           <% if (approver = approval_step_approver_label(step)) %>
             <span class="approval-assignee"><%= h approver %></span>
           <% end %>
+          <% if step.assigns_signer? %>
+            <span class="approval-assign-badge"
+                  title="<%= l(:text_assign_signer_hint) %>"><%= l(:label_assign_signer) %></span>
+          <% end %>
           <% if signature %>
             <span class="approval-step-signature <%= 'approval-derived' if signature.derived? %>">
               <%= link_to_user signature.user %>,

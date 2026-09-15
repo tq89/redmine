@@ -392,6 +392,76 @@ class ApprovalPanelTest < Redmine::IntegrationTest
                   :text => /#{User.find(2).name}.+#{User.find(3).name}/
   end
 
+  # --- handing the issue over ------------------------------------------------
+
+  def test_the_form_offers_the_handover_checkbox_on_an_issue_route
+    Role.find(1).add_permission!(:manage_approval_routes)
+    identifier = @issue.project.identifier
+    log_user('jsmith', 'jsmith')
+
+    get "/projects/#{identifier}/approval_routes/new"
+    assert_response :success
+    assert_select 'input[type=checkbox][name=?]',
+                  'approval_route[steps_attributes][0][assign_signer]'
+
+    # An extension decides a date; it has no business moving the work, so the
+    # column is not offered there.
+    get "/projects/#{identifier}/approval_routes/new?kind=extension"
+    assert_response :success
+    assert_select 'input[type=checkbox][name=?]',
+                  'approval_route[steps_attributes][0][assign_signer]', 0
+  end
+
+  def test_the_handover_option_is_saved_and_shown
+    Role.find(1).add_permission!(:manage_approval_routes)
+    identifier = @issue.project.identifier
+    log_user('jsmith', 'jsmith')
+
+    post "/projects/#{identifier}/approval_routes", :params => {
+      :approval_route => {
+        :name => 'Lưu trình giao việc', :tracker_ids => ['1'], :active => '1',
+        :steps_attributes => {
+          '0' => {:name => 'Nhận việc', :issue_status_id => 2, :position => 0,
+                  :assign_signer => '1'},
+          '1' => {:name => 'Duyệt', :issue_status_id => 3, :position => 1,
+                  :assign_signer => '0'}
+        }
+      }
+    }
+
+    route = ApprovalRoute.order(:id).last
+    assert route.step_at(0).assigns_signer?
+    assert_not route.step_at(1).assigns_signer?
+
+    get "/projects/#{identifier}/settings/approval_routes"
+    assert_response :success
+    assert_select 'span.approval-assign-badge', 1
+  end
+
+  def test_the_panel_marks_the_step_that_hands_the_issue_over
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    route.step_at(0).update!(:assign_signer => true)
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select 'div.approval-workflow span.approval-assign-badge', 1
+  end
+
+  # The bell posts to the same action, so the handover happens there too.
+  def test_quick_signing_from_the_bell_hands_the_issue_over
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    route.step_at(0).update!(:assign_signer => true)
+    @issue.update_columns(:assigned_to_id => nil)
+    log_user('jsmith', 'jsmith')
+
+    post "/issues/#{@issue.id}/approvals?decision=approve"
+
+    assert_redirected_to "/issues/#{@issue.id}"
+    assert_equal 2, @issue.reload.assigned_to_id
+  end
+
   # --- the floating header --------------------------------------------------
 
   # Core renders #sticky-issue-header and shows it once the subject scrolls out

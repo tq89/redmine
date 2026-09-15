@@ -10,6 +10,8 @@ vi:
   label_approval_step: "Bước ký"
   label_approval_step_plural: "Các bước ký"
   label_approval_step_add: "Thêm bước"
+  label_assign_signer: "Giao việc cho người ký"
+  text_assign_signer_hint: "\"Giao việc cho người ký\": chữ ký làm xong bước này đồng thời đặt người ký thành Người thực hiện của công việc — đúng kiểu bước \"Nhận việc\". Vẫn tuân theo quyền trên trường Người thực hiện trong luồng công việc, và người ký phải nằm trong danh sách được giao việc; nếu một trong hai chặn lại thì bước vẫn được ký và có cảnh báo cho biết chưa giao việc được."
   label_approval_mode: "Cách ký"
   label_approval_mode_any: "Một người bất kỳ (OR)"
   label_approval_mode_all: "Tất cả, theo thứ tự (AND)"
@@ -72,6 +74,8 @@ vi:
   error_approval_no_target_status: "Không xác định được trạng thái đích. Hãy kiểm tra cấu hình lưu trình."
 
   warning_approval_out_of_sync: "Trạng thái hiện tại của công việc không khớp với bước ký gần nhất. Có thể ai đó đã đổi trạng thái thủ công ngoài lưu trình."
+  warning_signer_not_assigned_readonly: "Đã ký, nhưng chưa giao việc được: luồng công việc đang khoá trường Người thực hiện với bạn ở trạng thái này."
+  warning_signer_not_assignable: "Đã ký, nhưng chưa giao việc được: không thể giao công việc này cho bạn."
 
   text_approval_journal_signed: "Ký duyệt bước: %{step}"
   text_approval_journal_rejected: "Từ chối bước: %{step}"

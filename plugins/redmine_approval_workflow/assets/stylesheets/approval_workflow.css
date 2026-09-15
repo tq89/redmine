@@ -185,6 +185,17 @@ table.approval-step-form td.approval-step-approvers { min-width: 260px; }
 #approval-bell .approval-bell-footer { padding: 8px 12px; background: #fafafa; }
 
 .approval-assignee { color: #555; font-size: 0.85em; margin-left: 6px; }
+.approval-assign-badge {
+  display: inline-block;
+  background: #e6f0fb;
+  color: #1c5b9c;
+  border: 1px solid #b7d2ec;
+  border-radius: 3px;
+  padding: 0 5px;
+  font-size: 0.82em;
+  margin-left: 4px;
+}
+table.approval-step-form td.approval-step-assign { text-align: center; }
 .approval-button-label { color: #777; font-size: 0.85em; }
 ol.approval-route-summary { margin: 0; padding-left: 18px; }
 

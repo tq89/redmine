@@ -37,6 +37,9 @@
                   <% if (approver = approval_step_approver_label(step)) %>
                     <span class="approval-assignee"><%= h approver %></span>
                   <% end %>
+                  <% if step.assigns_signer? %>
+                    <span class="approval-assign-badge"><%= l(:label_assign_signer) %></span>
+                  <% end %>
                 </li>
               <% end %>
             </ol>

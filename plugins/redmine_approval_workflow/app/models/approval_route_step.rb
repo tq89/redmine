@@ -41,6 +41,13 @@ class ApprovalRouteStep < ApplicationRecord
     button_label.presence || ::I18n.t(:button_approve)
   end
 
+  # "Nhận việc": the signature that finishes this step also hands the issue to
+  # whoever gave it. Only issue steps -- an extension request decides a date and
+  # has no business moving the work to somebody else.
+  def assigns_signer?
+    assign_signer? && !extension_step?
+  end
+
   def any_mode?
     approval_mode != ALL_MODE
   end

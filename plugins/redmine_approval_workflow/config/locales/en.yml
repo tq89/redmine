@@ -9,6 +9,8 @@ en:
   label_approval_step: "Approval step"
   label_approval_step_plural: "Approval steps"
   label_approval_step_add: "Add a step"
+  label_assign_signer: "Hand the issue over"
+  text_assign_signer_hint: "\"Hand the issue over\": the signature that finishes this step also sets the signer as the issue's assignee — a \"take this job\" step. It obeys the workflow's field permission on the assignee, and the signer must be somebody the issue can be assigned to; when either blocks it the step still signs and a warning says the handover did not happen."
   label_approval_mode: "Signing"
   label_approval_mode_any: "Any one of them (OR)"
   label_approval_mode_all: "All of them, in order (AND)"
@@ -71,6 +73,8 @@ en:
   error_approval_no_target_status: "No target status could be determined. Check the route configuration."
 
   warning_approval_out_of_sync: "The current issue status does not match the last signed step. Someone may have changed the status by hand, outside the route."
+  warning_signer_not_assigned_readonly: "Signed, but the issue was not handed over: the workflow makes the assignee read-only for you at this status."
+  warning_signer_not_assignable: "Signed, but the issue was not handed over: it cannot be assigned to you."
 
   text_approval_journal_signed: "Approved step: %{step}"
   text_approval_journal_rejected: "Rejected step: %{step}"

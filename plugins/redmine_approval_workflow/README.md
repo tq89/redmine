@@ -268,6 +268,7 @@ Mỗi **bước** khai báo:
 | **Người ký** | **danh sách** có thứ tự: **Người thực hiện**, các **vai trò**, các **người** cụ thể; **bắt buộc** với bước gia hạn |
 | **Cách ký** | *Một người bất kỳ (OR)* hoặc *Tất cả, theo thứ tự (AND)* |
 | **Nhãn nút** | chữ trên nút thao tác, ví dụ "Trình ký", "Phê duyệt"; để trống = "Ký duyệt" |
+| **Giao việc cho người ký** | ký xong bước này thì người ký thành *Người thực hiện* — dùng cho bước "Nhận việc" |
 
 Bảng bước có nút **"Thêm bước"** để thêm dòng, nên lưu trình dài bao nhiêu bước
 cũng khai báo được. Dòng mới tự nhận số thứ tự kế tiếp; khi lưu, thứ tự được
@@ -291,6 +292,35 @@ chữ ký bước đó đã gom **không còn tính** — phải ký lại từ 
 Một bước được **suy ra từ lịch sử** (mục "Tự khớp với trạng thái thật" bên dưới)
 tính là đã qua trọn vẹn, kể cả ở chế độ AND: lịch sử ghi việc công việc đã
 chuyển trạng thái, chứ không ghi ai đã điền ô nào.
+
+### "Nhận việc" — giao việc cho chính người bấm nút
+
+Tick **Giao việc cho người ký** ở một bước thì chữ ký **làm xong bước đó** đồng
+thời đặt người vừa ký thành *Người thực hiện* của công việc. Đúng kiểu bước
+"Nhận việc": ai nhận thì việc về tay người đó, không cần ai gán thủ công.
+
+- Với bước **OR**, ai bấm trước thì người đó nhận.
+- Với bước **AND**, việc về tay người **ký cuối cùng** — người làm xong bước.
+  Các chữ ký giữa chừng không đổi người thực hiện.
+- **Từ chối** không giao việc cho ai cả.
+- Việc giao nằm **chung một mục lịch sử** với lần đổi trạng thái, không phải một
+  lần sửa thứ hai.
+- Nút ký nhanh trên chuông đi qua đúng action đó nên cũng giao việc.
+
+Tùy chọn này **không** cấp thêm quyền cho ai. Nó vẫn tuân hai điều kiện của
+Redmine, và khi bị chặn thì **nói ra** chứ không im lặng:
+
+| Bị chặn khi | Kết quả |
+|---|---|
+| Luồng công việc đặt *Người thực hiện* là **Chỉ đọc** cho vai trò đó, ở trạng thái hiện tại | vẫn ký được, kèm cảnh báo "chưa giao việc được" |
+| Người ký không nằm trong danh sách được giao việc của công việc | vẫn ký được, kèm cảnh báo |
+
+Quyền trên trường được đọc ở **trạng thái công việc đang đứng**, tức trạng thái
+người đó thao tác *từ* đó — cùng cái trạng thái dùng để xét mọi quyền khác của
+lần ký này.
+
+Bước của lưu trình **gia hạn** không có ô này: đơn gia hạn quyết một cái ngày,
+nó không có việc gì phải chuyển người làm.
 
 ### Thẻ: chọn xong giữ lại, kéo thả đổi thứ tự, bấm × để bỏ
 
@@ -441,4 +471,4 @@ chỗ: trong journal và trong chính bản ghi chữ ký (hiện trên panel l�
 bundle exec rails test plugins/redmine_approval_workflow/test RAILS_ENV=test
 ```
 
-256 test, 988 assertion.
+271 test, 1046 assertion.
