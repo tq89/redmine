@@ -336,7 +336,7 @@ Mỗi **bước** khai báo:
 | **Người ký** | **danh sách** có thứ tự: **Người thực hiện**, các **vai trò**, các **người** cụ thể; **bắt buộc** với bước gia hạn |
 | **Cách ký** | *Một người bất kỳ (OR)* hoặc *Tất cả, theo thứ tự (AND)* |
 | **Nhãn nút** | chữ trên nút thao tác, ví dụ "Trình ký", "Phê duyệt"; để trống = "Ký duyệt" |
-| **Giao việc cho người ký** | ký xong bước này thì người ký thành *Người thực hiện* — dùng cho bước "Nhận việc" |
+| **Khi ký xong** | *Giao việc cho người ký* (→ Người thực hiện) và/hoặc *Đặt người ký làm tác giả* (→ Tác giả) |
 
 Bảng bước có nút **"Thêm bước"** để thêm dòng, nên lưu trình dài bao nhiêu bước
 cũng khai báo được. Dòng mới tự nhận số thứ tự kế tiếp; khi lưu, thứ tự được
@@ -389,6 +389,29 @@ lần ký này.
 
 Bước của lưu trình **gia hạn** không có ô này: đơn gia hạn quyết một cái ngày,
 nó không có việc gì phải chuyển người làm.
+
+### "Giao việc" — đặt người ký làm tác giả
+
+Tick **Đặt người ký làm tác giả** thì chữ ký làm xong bước đó đặt người vừa ký
+thành *Tác giả* của công việc — tức **người giao việc**. Hữu ích khi công việc do
+máy sinh ra chứ không phải người (ví dụ việc định kỳ): ai đứng ra giao thì người
+đó mới thật sự là người phát sinh công việc.
+
+Quy tắc giống hệt ô trên: OR thì ai bấm trước, AND thì người ký cuối; từ chối
+không đổi gì; thay đổi nằm chung một mục lịch sử với lần đổi trạng thái. Hai ô
+độc lập nhau, tick cả hai trên cùng một bước cũng được.
+
+`author_id` nằm trong `Issue#journalized_attribute_names` nên Redmine ghi thay
+đổi này vào lịch sử công việc như mọi trường khác — không phải một lần sửa lén.
+
+> **Cân nhắc trước khi bật.** Khác với *Người thực hiện*, Redmine **không có**
+> quyền-trên-trường cho *Tác giả* (`author_id` không nằm trong
+> `Tracker::CORE_FIELDS`), nên **không có gì chặn được** thao tác này ngoài việc
+> quản trị viên đã bật nó và người đó có quyền ký bước. Và vì một số quyền
+> (`edit_own_issues`, `set_own_issues_private`…) cùng một số chuyển trạng thái
+> chỉ dành cho tác giả, **người mới có thể được thêm quyền trên công việc, còn
+> người cũ thì mất**. Ô này viết ra đúng như ông yêu cầu, nhưng hệ quả đó là
+> thật, nên tôi nói rõ ở đây và trong phần gợi ý ngay trên form.
 
 ### Thẻ: chọn xong giữ lại, kéo thả đổi thứ tự, bấm × để bỏ
 
@@ -539,4 +562,4 @@ chỗ: trong journal và trong chính bản ghi chữ ký (hiện trên panel l�
 bundle exec rails test plugins/redmine_approval_workflow/test RAILS_ENV=test
 ```
 
-285 test, 1134 assertion.
+292 test, 1157 assertion.

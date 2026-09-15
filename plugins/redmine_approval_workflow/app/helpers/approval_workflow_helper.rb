@@ -89,6 +89,14 @@ module ApprovalWorkflowHelper
       to_h {|label, value| [value.to_s, label]}
   end
 
+  # What a step does to the issue besides moving its status, as badge labels.
+  def approval_step_effect_labels(step)
+    labels = []
+    labels << l(:label_assign_signer) if step.assigns_signer?
+    labels << l(:label_assign_author) if step.assigns_author?
+    labels
+  end
+
   # How a step's approver list reads wherever a chain is shown. nil when the
   # step leaves it to the workflow.
   def approval_step_approver_label(step)

@@ -23,7 +23,7 @@ module RedmineApprovalWorkflow
     REQUIRED_COLUMNS = {
       'approval_routes'          => %w[kind],
       'approval_route_trackers'  => %w[approval_route_id tracker_id],
-      'approval_route_steps'     => %w[approval_mode assign_signer],
+      'approval_route_steps'     => %w[approval_mode assign_signer assign_author],
       'approval_route_approvers' => %w[approval_route_step_id position approver_dynamic],
       'approval_signatures'      => %w[derived issue_extension_id approval_route_approver_id],
       'issue_extensions'         => %w[status approval_route_id decided_at]

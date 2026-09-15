@@ -139,6 +139,93 @@ class AssignSignerTest < Redmine::ControllerTest
     assert flash[:warning].present?
   end
 
+  # --- making the signer the author ------------------------------------------
+
+  def test_signing_a_flagged_step_makes_the_signer_the_author
+    # The fixture issue is authored by user 2, the one who signs below, so the
+    # change has to start from somebody else to mean anything.
+    @issue.update_columns(:author_id => 3)
+    @step.update!(:assign_author => true)
+
+    approve(2)
+
+    assert_redirected_to "/issues/#{@issue.id}"
+    assert_equal 2, @issue.reload.author_id
+    assert_equal 2, @issue.status_id, 'the status still moves as usual'
+  end
+
+  def test_an_unflagged_step_leaves_the_author_alone
+    author = @issue.author_id
+
+    approve(2)
+
+    assert_equal author, @issue.reload.author_id
+  end
+
+  # author_id is in Issue#journalized_attribute_names, so the change is part of
+  # the record rather than a silent rewrite of who raised the issue.
+  def test_the_author_change_is_recorded_in_the_history
+    @issue.update_columns(:author_id => 3)
+    @step.update!(:assign_author => true)
+
+    assert_difference 'Journal.count', 1 do
+      approve(2)
+    end
+
+    detail = Journal.order(:id).last.details.detect {|d| d.prop_key == 'author_id'}
+    assert_not_nil detail, 'the handover of authorship must be in the history'
+    assert_equal '3', detail.old_value
+    assert_equal '2', detail.value
+  end
+
+  def test_rejecting_a_flagged_step_does_not_change_the_author
+    @issue.update_columns(:author_id => 3)
+    @step.update!(:assign_author => true)
+    @request.session[:user_id] = 2
+
+    post :create, :params => {:issue_id => @issue.id, :decision => 'reject'}
+
+    assert_equal 3, @issue.reload.author_id
+  end
+
+  def test_an_all_step_changes_the_author_only_when_it_is_finished
+    @issue.update_columns(:author_id => 1)
+    @step.update!(:assign_author => true)
+    # User 3 signs first, user 2 finishes -- so the author must end up as 2.
+    set_step_approvers(@step, ['user:3', 'user:2'], :mode => ApprovalRouteStep::ALL_MODE)
+    WorkflowTransition.create!(:tracker_id => @issue.tracker_id, :role_id => 2,
+                               :old_status_id => 1, :new_status_id => 2)
+
+    approve(3)
+    assert_equal 1, @issue.reload.author_id, 'the step is not finished yet'
+
+    approve(2)
+    assert_equal 2, @issue.reload.author_id,
+                 'the signature that finishes the step is the one that takes it'
+  end
+
+  def test_both_options_can_be_set_on_one_step
+    @issue.update_columns(:author_id => 3, :assigned_to_id => nil)
+    @step.update!(:assign_signer => true, :assign_author => true)
+
+    approve(2)
+
+    issue = @issue.reload
+    assert_equal 2, issue.author_id
+    assert_equal 2, issue.assigned_to_id
+  end
+
+  def test_an_extension_step_never_changes_the_author
+    route = ApprovalRoute.create!(:name => 'GH', :tracker_ids => [1],
+                                  :kind => ApprovalRoute::EXTENSION_KIND)
+    step = route.steps.create!(:name => 'Duyệt', :position => 0,
+                               :approver_tokens => ['user:2'],
+                               :assign_author => true)
+
+    assert step.assign_author?
+    assert_not step.assigns_author?
+  end
+
   # --- configuration --------------------------------------------------------
 
   def test_the_option_is_saved_from_the_route_form

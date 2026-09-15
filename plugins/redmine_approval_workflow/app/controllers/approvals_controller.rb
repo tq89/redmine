@@ -74,6 +74,7 @@ class ApprovalsController < ApplicationController
         # the same save keeps the handover in one journal entry with the status
         # change rather than as a second, separate edit.
         @assignment_warning = assign_signer_to_issue
+        make_signer_the_author
         @issue.status = @target_status
         # This save is the signature itself; letting the history reconciler
         # also see it would advance the chain twice for one decision.
@@ -161,6 +162,19 @@ class ApprovalsController < ApplicationController
 
     @issue.assigned_to = User.current
     nil
+  end
+
+  # "Giao việc": the signature that finishes the step makes the signer the
+  # issue's author. Nothing can refuse it the way a field permission can refuse
+  # the assignee -- Redmine has no workflow rule for author_id -- so the only
+  # gate is that the admin configured this step and this user may sign it.
+  # author_id is journalized, so the change shows in the issue history.
+  def make_signer_the_author
+    return unless @approving
+    return unless @step&.assigns_author?
+    return if @issue.author_id == User.current.id
+
+    @issue.author = User.current
   end
 
   # A step still collecting signatures says so, and names who it is waiting on.

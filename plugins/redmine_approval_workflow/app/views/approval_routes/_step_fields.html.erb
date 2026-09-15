@@ -30,9 +30,11 @@
                         :placeholder => l(:button_approve) %></td>
   <% if @route.extension? %>
     <%= sf.hidden_field :assign_signer, :value => '0' %>
+    <%= sf.hidden_field :assign_author, :value => '0' %>
   <% else %>
     <td class="approval-step-assign">
-      <%= sf.check_box :assign_signer %>
+      <label><%= sf.check_box :assign_signer %> <%= l(:label_assign_signer) %></label>
+      <label><%= sf.check_box :assign_author %> <%= l(:label_assign_author) %></label>
     </td>
   <% end %>
   <td><%= sf.check_box :_destroy unless sf.object.new_record? %></td>

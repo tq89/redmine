@@ -195,7 +195,12 @@ table.approval-step-form td.approval-step-approvers { min-width: 260px; }
   font-size: 0.82em;
   margin-left: 4px;
 }
-table.approval-step-form td.approval-step-assign { text-align: center; }
+table.approval-step-form td.approval-step-assign { white-space: nowrap; }
+table.approval-step-form td.approval-step-assign label {
+  display: block;
+  font-weight: normal;
+  font-size: 0.9em;
+}
 .approval-button-label { color: #777; font-size: 0.85em; }
 ol.approval-route-summary { margin: 0; padding-left: 18px; }
 

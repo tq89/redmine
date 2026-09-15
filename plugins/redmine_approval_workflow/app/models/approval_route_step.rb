@@ -48,6 +48,14 @@ class ApprovalRouteStep < ApplicationRecord
     assign_signer? && !extension_step?
   end
 
+  # "Giao việc": the signature that finishes this step makes the signer the
+  # issue's author -- the person who handed the work out. Useful on an issue
+  # raised by something other than a person, a recurring-task generator say,
+  # where whoever assigns the work is the one who really owns raising it.
+  def assigns_author?
+    assign_author? && !extension_step?
+  end
+
   def any_mode?
     approval_mode != ALL_MODE
   end

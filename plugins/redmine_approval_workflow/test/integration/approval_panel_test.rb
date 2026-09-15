@@ -540,7 +540,7 @@ class ApprovalPanelTest < Redmine::IntegrationTest
 
   # --- handing the issue over ------------------------------------------------
 
-  def test_the_form_offers_the_handover_checkbox_on_an_issue_route
+  def test_the_form_offers_the_handover_checkboxes_on_an_issue_route
     Role.find(1).add_permission!(:manage_approval_routes)
     identifier = @issue.project.identifier
     log_user('jsmith', 'jsmith')
@@ -549,13 +549,17 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     assert_response :success
     assert_select 'input[type=checkbox][name=?]',
                   'approval_route[steps_attributes][0][assign_signer]'
+    assert_select 'input[type=checkbox][name=?]',
+                  'approval_route[steps_attributes][0][assign_author]'
 
-    # An extension decides a date; it has no business moving the work, so the
-    # column is not offered there.
+    # An extension decides a date; it has no business moving the work or
+    # rewriting who raised the issue, so neither is offered there.
     get "/projects/#{identifier}/approval_routes/new?kind=extension"
     assert_response :success
     assert_select 'input[type=checkbox][name=?]',
                   'approval_route[steps_attributes][0][assign_signer]', 0
+    assert_select 'input[type=checkbox][name=?]',
+                  'approval_route[steps_attributes][0][assign_author]', 0
   end
 
   def test_the_handover_option_is_saved_and_shown
@@ -567,21 +571,24 @@ class ApprovalPanelTest < Redmine::IntegrationTest
       :approval_route => {
         :name => 'Lưu trình giao việc', :tracker_ids => ['1'], :active => '1',
         :steps_attributes => {
-          '0' => {:name => 'Nhận việc', :issue_status_id => 2, :position => 0,
-                  :assign_signer => '1'},
-          '1' => {:name => 'Duyệt', :issue_status_id => 3, :position => 1,
-                  :assign_signer => '0'}
+          '0' => {:name => 'Giao việc', :issue_status_id => 2, :position => 0,
+                  :assign_signer => '0', :assign_author => '1'},
+          '1' => {:name => 'Nhận việc', :issue_status_id => 3, :position => 1,
+                  :assign_signer => '1', :assign_author => '0'}
         }
       }
     }
 
     route = ApprovalRoute.order(:id).last
-    assert route.step_at(0).assigns_signer?
-    assert_not route.step_at(1).assigns_signer?
+    assert route.step_at(0).assigns_author?
+    assert_not route.step_at(0).assigns_signer?
+    assert route.step_at(1).assigns_signer?
+    assert_not route.step_at(1).assigns_author?
 
     get "/projects/#{identifier}/settings/approval_routes"
     assert_response :success
-    assert_select 'span.approval-assign-badge', 1
+    # One badge per effect, so the listing says which step does what.
+    assert_select 'span.approval-assign-badge', 2
   end
 
   def test_the_panel_marks_the_step_that_hands_the_issue_over
