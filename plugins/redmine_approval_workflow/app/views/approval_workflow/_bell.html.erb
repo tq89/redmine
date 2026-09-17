@@ -2,9 +2,10 @@
   # Rendered only from _layout_additions, which decides whether the bell is
   # shown at all.
   pending = User.current.pending_approval_issues
+  claimable = User.current.self_claimable_approvals
   extensions = User.current.pending_extension_requests
   overdue = User.current.overdue_issues
-  total = pending.size + extensions.size + overdue.size
+  total = pending.size + claimable.size + extensions.size + overdue.size
 %>
 <div id="approval-bell" class="dropdown" data-controller="dropdown">
   <a href="#" class="dropdown-trigger approval-bell-trigger <%= 'has-items' if total > 0 %>"
@@ -16,23 +17,24 @@
       <path d="M10 5a2 2 0 1 1 4 0 7 7 0 0 1 4 6v3a4 4 0 0 0 2 3H4a4 4 0 0 0 2-3v-3a7 7 0 0 1 4-6" />
       <path d="M9 17v1a3 3 0 0 0 6 0v-1" />
     </svg>
-    <% if total > 0 %>
-      <span class="approval-bell-count"><%= total > 99 ? '99+' : total %></span>
-    <% end %>
+    <span class="approval-bell-count" <%= 'hidden'.html_safe if total.zero? %>><%= total > 99 ? '99+' : total %></span>
   </a>
 
   <div class="dropdown-content approval-bell-panel hidden" data-dropdown-target="content">
-    <% if total.zero? %>
-      <p class="approval-bell-empty"><%= l(:label_no_pending_approval) %></p>
-    <% end %>
+    <p class="approval-bell-empty" <%= 'hidden'.html_safe if total > 0 %>>
+      <%= l(:label_no_pending_approval) %>
+    </p>
 
     <% if pending.any? %>
-      <div class="approval-bell-section">
-        <h4><%= l(:label_pending_approval_plural) %> (<%= pending.size %>)</h4>
+      <div class="approval-bell-section" data-approval-section>
+        <h4>
+          <%= l(:label_pending_approval_plural) %>
+          (<span data-approval-section-count><%= pending.size %></span>)
+        </h4>
         <ul>
           <% pending.each do |issue| %>
             <% step = issue.current_approval_step %>
-            <li class="approval-bell-item">
+            <li class="approval-bell-item" data-approval-row>
               <%= link_to "#{h issue.tracker.name} ##{issue.id}", issue_path(issue),
                           :class => 'approval-bell-ref' %>
               <span class="approval-bell-subject"><%= h issue.subject.truncate(60) %></span>
@@ -58,13 +60,54 @@
       </div>
     <% end %>
 
+    <% if claimable.any? %>
+      <div class="approval-bell-section approval-bell-claimable" data-approval-section>
+        <h4>
+          <%= l(:label_self_claimable_plural) %>
+          (<span data-approval-section-count><%= claimable.size %></span>)
+        </h4>
+        <ul>
+          <% claimable.each do |issue, step| %>
+            <li class="approval-bell-item" data-approval-row>
+              <%= link_to "#{h issue.tracker.name} ##{issue.id}", issue_path(issue),
+                          :class => 'approval-bell-ref' %>
+              <span class="approval-bell-subject"><%= h issue.subject.truncate(60) %></span>
+              <span class="approval-bell-meta">
+                <%= h issue.project.name %>
+                &middot; <%= h step.name %>
+                &middot; <%= h issue.status.name %> &rarr; <%= h step.issue_status&.name %>
+              </span>
+              <span class="approval-bell-actions">
+                <%# step_id is what makes this a claim rather than a signature on
+                    whatever step happens to be due. %>
+                <%= button_to step.action_label,
+                              issue_approvals_path(issue, :decision => 'approve',
+                                                          :step_id => step.id),
+                              :method => :post,
+                              :class => 'approval-bell-sign approval-bell-claim',
+                              :data => {:confirm => l(:text_confirm_skip_sign,
+                                                      :status => step.issue_status&.name)} %>
+                <%= link_to l(:label_approval_with_comment),
+                            new_issue_approval_path(issue, :decision => 'approve',
+                                                           :step_id => step.id),
+                            :class => 'approval-bell-detail' %>
+              </span>
+            </li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
     <% if extensions.any? %>
-      <div class="approval-bell-section approval-bell-extensions">
-        <h4><%= l(:label_pending_extension_plural) %> (<%= extensions.size %>)</h4>
+      <div class="approval-bell-section approval-bell-extensions" data-approval-section>
+        <h4>
+          <%= l(:label_pending_extension_plural) %>
+          (<span data-approval-section-count><%= extensions.size %></span>)
+        </h4>
         <ul>
           <% extensions.each do |extension| %>
             <% issue = extension.issue %>
-            <li class="approval-bell-item">
+            <li class="approval-bell-item" data-approval-row>
               <%= link_to "#{h issue.tracker.name} ##{issue.id}", issue_path(issue),
                           :class => 'approval-bell-ref' %>
               <span class="approval-bell-subject"><%= h issue.subject.truncate(60) %></span>
@@ -91,8 +134,11 @@
     <% end %>
 
     <% if overdue.any? %>
-      <div class="approval-bell-section approval-bell-overdue">
-        <h4><%= l(:label_overdue_issue_plural) %> (<%= overdue.size %>)</h4>
+      <div class="approval-bell-section approval-bell-overdue" data-approval-section>
+        <h4>
+          <%= l(:label_overdue_issue_plural) %>
+          (<span data-approval-section-count><%= overdue.size %></span>)
+        </h4>
         <ul>
           <% overdue.each do |issue| %>
             <li class="approval-bell-item">
@@ -116,3 +162,98 @@
     </div>
   </div>
 </div>
+
+<script>
+  // Quick actions without leaving the page.
+  //
+  // Each button is a real form post, so with no JavaScript at all the bell
+  // still works -- it just lands on the issue afterwards, the way it used to.
+  // This handler intercepts the submit, posts it in the background and writes
+  // the server's own message into the row, so whatever the user was reading
+  // stays on screen.
+  (function () {
+    var bell = document.getElementById('approval-bell');
+    if (!bell || !window.fetch || bell.getAttribute('data-quick-bound')) { return; }
+    bell.setAttribute('data-quick-bound', '1');
+
+    var failureText = <%= raw l(:text_approval_quick_failed).to_json %>;
+
+    function counter() { return bell.querySelector('.approval-bell-count'); }
+
+    // The badge and the section heading both count rows that are still
+    // actionable, so they come down together as rows are dealt with.
+    function decrement(row) {
+      var badge = counter();
+      if (badge) {
+        var left = Math.max(0, (parseInt(badge.textContent, 10) || 0) - 1);
+        badge.textContent = left > 99 ? '99+' : left;
+        if (left === 0) {
+          badge.hidden = true;
+          // Guarded, not assumed: anything thrown from here lands in the catch
+          // below and would report a failure on a signature that went through.
+          var trigger = bell.querySelector('.approval-bell-trigger');
+          if (trigger) { trigger.classList.remove('has-items'); }
+          var empty = bell.querySelector('.approval-bell-empty');
+          if (empty) { empty.hidden = false; }
+        }
+      }
+      var section = row.closest('[data-approval-section]');
+      var count = section && section.querySelector('[data-approval-section-count]');
+      if (count) {
+        count.textContent = Math.max(0, (parseInt(count.textContent, 10) || 0) - 1);
+      }
+    }
+
+    function settle(row, message, done) {
+      var actions = row.querySelector('.approval-bell-actions');
+      if (actions) {
+        actions.textContent = '';
+        var note = document.createElement('span');
+        note.className = done ? 'approval-bell-done' : 'approval-bell-failed';
+        note.textContent = message;
+        actions.appendChild(note);
+      }
+      if (done) { row.classList.add('approval-bell-settled'); }
+    }
+
+    bell.addEventListener('submit', function (event) {
+      var form = event.target;
+      if (!form || form.tagName !== 'FORM') { return; }
+      var row = form.closest('[data-approval-row]');
+      if (!row) { return; }
+      // Only now: letting the plain post through is the fallback, and it has
+      // to stay available if anything above did not match.
+      event.preventDefault();
+
+      var button = form.querySelector('button, input[type=submit]');
+      if (button) { button.disabled = true; }
+
+      fetch(form.action, {
+        method: 'POST',
+        // button_to writes the CSRF token into the form, so the body carries it.
+        body: new FormData(form),
+        headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+        credentials: 'same-origin'
+      }).then(function (response) {
+        // A refusal answers with Redmine's own 403 page, which is HTML; treat
+        // anything unparseable as a plain failure rather than guessing.
+        return response.json().catch(function () { return {}; }).then(function (data) {
+          return {ok: response.ok, data: data};
+        });
+      }).then(function (result) {
+        if (result.ok && result.data.level !== 'error') {
+          var message = result.data.message || '';
+          if (result.data.warning) { message += ' ' + result.data.warning; }
+          settle(row, message, true);
+          decrement(row);
+        } else {
+          settle(row, result.data.message || failureText, false);
+          if (button) { button.disabled = false; }
+        }
+      }).catch(function () {
+        settle(row, failureText, false);
+        if (button) { button.disabled = false; }
+      });
+    });
+  })();
+</script>

@@ -70,6 +70,10 @@ vi:
   label_pending_approval_with_count: "Chờ ký (%{count})"
   label_no_pending_approval: "Không có công việc nào đang chờ bạn ký."
   warning_pending_approvals_capped: "Chỉ hiển thị %{count} công việc đầu tiên. Hãy ký bớt rồi tải lại trang để xem tiếp."
+  label_self_claimable_plural: "Việc có thể tự nhận"
+  label_no_self_claimable: "Không có việc nào bạn tự nhận được lúc này."
+  text_self_claimable_hint: "Các bước được đánh dấu \"Cho ký vượt\" mà bạn ký được ngay, không cần chờ ai giao. Các bước trước sẽ ghi là bỏ qua."
+  text_approval_quick_failed: "Không thực hiện được. Hãy mở công việc để xem."
 
   button_approve: "Ký duyệt"
   button_reject_approval: "Từ chối"

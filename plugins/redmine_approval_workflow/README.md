@@ -94,11 +94,16 @@ trình công việc tiến thêm một bước.
 ## Nút chuông cạnh ảnh đại diện
 
 Góc phải thanh trên cùng, ngay cạnh nút profile, có **nút chuông** với số đếm
-đỏ. Nhấp vào mở panel gồm ba phần:
+đỏ. Nhấp vào mở panel gồm bốn phần:
 
 - **Chờ tôi ký** — mỗi dòng hiện mã công việc, tiêu đề, dự án, tên bước và
   trạng thái sẽ chuyển sang; kèm **nút ký nhanh** (dùng đúng nhãn của bước, có
   hộp xác nhận) và liên kết *Ký kèm ý kiến* nếu muốn ghi chú.
+- **Việc có thể tự nhận** — bước phía sau trong lưu trình có bật *Cho ký vượt*
+  mà bạn ký được ngay, không cần chờ ai giao. Nút gửi kèm `step_id` nên nó ký
+  đúng bước đó chứ không ký bước đang tới lượt; các bước bị nhảy qua ghi là
+  *Đã bỏ qua*. Một công việc đã nằm ở mục **Chờ tôi ký** thì không lặp lại ở
+  đây — cùng một lời nhắc, không nhắc hai lần.
 - **Đơn gia hạn chờ tôi duyệt** — mỗi dòng hiện công việc, tên bước và mốc ngày
   đang xin (`cũ → mới`), kèm nút duyệt nhanh có hộp xác nhận.
 - **Công việc quá hạn** — việc đang mở được giao cho bạn (hoặc cho nhóm của
@@ -107,6 +112,21 @@ Góc phải thanh trên cùng, ngay cạnh nút profile, có **nút chuông** v�
 Chuông dùng lại Stimulus controller `dropdown` của Redmine nên tự đóng khi bấm
 ra ngoài hoặc nhấn Escape. Chuông ẩn với khách chưa đăng nhập, và quản trị viên
 có thể tắt hẳn trong cấu hình plugin.
+
+### Thao tác nhanh không rời trang
+
+Các nút trên chuông là **form POST thật**, nên không có JavaScript chúng vẫn
+chạy — chỉ là ký xong thì nhảy sang trang công việc. Có JavaScript thì một
+đoạn script gắn trên chính `#approval-bell` chặn sự kiện `submit`, gửi lại
+bằng `fetch` với `Accept: application/json` rồi ghi câu trả lời của máy chủ
+vào đúng dòng đó, giảm số đếm trên chuông và **giữ nguyên trang người dùng
+đang đọc**. Token CSRF lấy từ chính form nên không cần đọc thẻ meta.
+
+Vì vậy `ApprovalsController#create` và `IssueExtensionsController#approve/reject`
+trả lời theo `respond_to`: HTML thì đặt flash rồi redirect như cũ, JSON thì trả
+`{level, message, warning}` và **không đặt flash** — flash đặt ở đây người dùng
+sẽ không thấy lúc bấm, mà thấy ở một trang khác hẳn sau đó. Trường hợp bị từ
+chối (403) hay lưu trình đã xong (422) cũng báo ngay tại dòng đó.
 
 Redmine không có hook nào ở khu vực profile-menu lẫn chân trang. Thay vì vá
 `base.html.erb`, chuông và dòng chân trang được render trên hook **có sẵn**
@@ -122,9 +142,16 @@ theo lô: routes, chữ ký và workflow transitions mỗi thứ lấy **một**
 (đo được: 26 query với 3 issue, vẫn 26 query với 43 issue). Nếu gọi thẳng
 `Issue#can_approve?` cho từng issue thì tốn ~10 query/issue.
 
-`Issue#can_approve?` vẫn là chuẩn mực — controller dùng nó — và
-`PendingApprovalsTest` ghim đường nhanh vào nó bằng các test so sánh kết quả
-hai bên. **Sửa một bên thì phải sửa bên kia.**
+Hai danh sách **Chờ tôi ký** và **Việc có thể tự nhận** lấy ra trong *cùng một*
+lượt (`PendingApprovals.evaluate`, nhớ tạm trên `User.current`), dùng chung
+routes, tập issue ứng viên và bảng tra transition — tách ra thì nhân đôi số
+query mà chẳng được gì. Phần "tự nhận" chỉ tốn thêm chi phí khi quản trị viên
+thực sự bật *Cho ký vượt* ở một bước nào đó; không bật thì nó dừng ngay.
+
+`Issue#can_approve?` và `Issue#approval_can_skip_to?` vẫn là chuẩn mực —
+controller dùng chúng — và `PendingApprovalsTest` / `SelfClaimableTest` ghim
+đường nhanh vào chúng bằng các test so sánh kết quả hai bên. **Sửa một bên thì
+phải sửa bên kia.**
 
 Danh sách quá hạn tốn thêm đúng **một** truy vấn, giới hạn 20 dòng.
 
@@ -439,7 +466,9 @@ trước**, miễn là luồng công việc cho phép chuyển từ trạng thá
 ai *Giao việc* vẫn bấm thẳng *Nhận việc* để làm.
 
 Trên trang công việc, mỗi bước ký vượt được sẽ có nút nhỏ ngay trên dòng bước
-đó, kèm hộp xác nhận nói rõ sẽ bỏ qua các bước trước.
+đó, kèm hộp xác nhận nói rõ sẽ bỏ qua các bước trước. Trên **nút chuông** và
+trang `/pending_approvals`, việc như vậy nằm ở mục **Việc có thể tự nhận** —
+nhân viên không phải mở từng công việc ra tìm.
 
 Ba điều quan trọng:
 

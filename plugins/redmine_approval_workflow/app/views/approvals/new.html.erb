@@ -2,6 +2,9 @@
 
 <%= form_tag(issue_approvals_path(@issue), :method => :post) do %>
   <%= hidden_field_tag 'decision', @approving ? 'approve' : 'reject' %>
+  <%# Carried through, or the post would sign whatever step is due instead of
+      the one this page is about. %>
+  <%= hidden_field_tag 'step_id', @step.id if @skipping %>
 
   <div class="box">
     <p>

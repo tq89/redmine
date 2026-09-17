@@ -94,15 +94,32 @@ class ApprovalsController < ApplicationController
     # next step, or the previous one after a rejection.
     ApprovalMailer.deliver_approval_pending(@issue.reload, User.current)
 
-    flash[:notice] = decision_notice
-    flash[:warning] = @assignment_warning if @assignment_warning
-    redirect_to issue_path(@issue)
+    approval_reply(:notice, decision_notice)
   rescue ActiveRecord::RecordInvalid => e
-    flash[:error] = e.record.errors.full_messages.join(', ')
-    redirect_to issue_path(@issue)
+    approval_reply(:error, e.record.errors.full_messages.join(', '),
+                   :status => :unprocessable_entity)
   end
 
   private
+
+  # Answers the ordinary form post and the bell's background post alike. The
+  # bell must not navigate away, so it asks for JSON and shows the message in
+  # place; setting a flash for it would instead surface the message on some
+  # unrelated page later on.
+  def approval_reply(level, message, status: :ok)
+    respond_to do |format|
+      format.html do
+        flash[level] = message
+        flash[:warning] = @assignment_warning if @assignment_warning
+        redirect_to issue_path(@issue)
+      end
+      format.json do
+        render :json => {:level => level, :message => message,
+                         :warning => @assignment_warning}.compact,
+               :status => status
+      end
+    end
+  end
 
   def find_approval_issue
     @issue = Issue.find(params[:issue_id])
@@ -151,14 +168,14 @@ class ApprovalsController < ApplicationController
       @target_status = @approving ? @issue.approval_target_status : @issue.approval_reject_target_status
 
       if @approving && @issue.approval_completed?
-        flash[:error] = l(:error_approval_already_completed)
-        return redirect_to issue_path(@issue)
+        return approval_reply(:error, l(:error_approval_already_completed),
+                              :status => :unprocessable_entity)
       end
     end
 
     if @target_status.nil?
-      flash[:error] = l(:error_approval_no_target_status)
-      redirect_to issue_path(@issue)
+      approval_reply(:error, l(:error_approval_no_target_status),
+                     :status => :unprocessable_entity)
     end
   end
 

@@ -67,7 +67,7 @@ class IssueExtensionsController < ApplicationController
       return deny_access
     end
 
-    flash[:notice] =
+    notice =
       if @extension.reload.approved?
         l(:notice_issue_extended, :date => format_date(@extension.new_due_date))
       elsif @extension.rejected?
@@ -75,7 +75,17 @@ class IssueExtensionsController < ApplicationController
       else
         l(:notice_approval_signed)
       end
-    redirect_to issue_path(@issue)
+
+    # The bell signs from a background post so the page it is open on stays
+    # put; it asks for JSON and shows the message in place. A flash set for it
+    # would instead turn up on some unrelated page later on.
+    respond_to do |format|
+      format.html do
+        flash[:notice] = notice
+        redirect_to issue_path(@issue)
+      end
+      format.json {render :json => {:level => :notice, :message => notice}}
+    end
   end
 
   def find_extendable_issue

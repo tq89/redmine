@@ -5,8 +5,20 @@ module RedmineApprovalWorkflow
   # show the item, once for its caption), and User.current is a fresh instance
   # per request, so memoising on the user makes the lookup run once per request.
   module UserPatch
+    # Both lists come out of one pass over the same routes and issues, so they
+    # are memoised together rather than one lookup each.
+    def approval_reminders
+      @approval_reminders ||= PendingApprovals.evaluate(self)
+    end
+
     def pending_approval_issues
-      @pending_approval_issues ||= PendingApprovals.for_user(self)
+      approval_reminders[:pending]
+    end
+
+    # [issue, step] pairs: work this user can take on without waiting for
+    # somebody to hand it over.
+    def self_claimable_approvals
+      approval_reminders[:claimable]
     end
 
     def pending_approval_count

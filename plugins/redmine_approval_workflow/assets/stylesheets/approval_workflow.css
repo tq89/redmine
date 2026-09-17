@@ -199,9 +199,22 @@ table.approval-step-form td.approval-step-approvers { min-width: 260px; }
   padding: 3px 10px; cursor: pointer; font-size: 0.9em;
 }
 #approval-bell .approval-bell-sign:hover { background: #226622; }
+/* Taking a job on is not the same act as signing what was handed to you, so it
+   does not wear the same green. */
+#approval-bell .approval-bell-claim { background: #1c5b9c; }
+#approval-bell .approval-bell-claim:hover { background: #164a80; }
 #approval-bell .approval-bell-detail { font-size: 0.85em; }
 #approval-bell .approval-overdue-days { color: #c62828; font-weight: bold; }
 #approval-bell .approval-bell-footer { padding: 8px 12px; background: #fafafa; }
+
+/* Set by the quick-action script once a row has been dealt with in place. The
+   explicit display:none keeps a theme that gives these a display from
+   overriding the hidden attribute. */
+#approval-bell .approval-bell-count[hidden],
+#approval-bell .approval-bell-empty[hidden] { display: none; }
+#approval-bell .approval-bell-settled { opacity: 0.6; }
+#approval-bell .approval-bell-done { color: #2a7f2a; font-size: 0.85em; }
+#approval-bell .approval-bell-failed { color: #c62828; font-size: 0.85em; }
 
 .approval-assignee { color: #555; font-size: 0.85em; margin-left: 6px; }
 .approval-assign-badge {

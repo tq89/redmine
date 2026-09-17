@@ -69,6 +69,10 @@ en:
   label_pending_approval_with_count: "To sign (%{count})"
   label_no_pending_approval: "Nothing is waiting for your signature."
   warning_pending_approvals_capped: "Only the first %{count} issues are listed. Sign some and reload to see the rest."
+  label_self_claimable_plural: "Work you can take on"
+  label_no_self_claimable: "There is nothing for you to take on right now."
+  text_self_claimable_hint: "Steps marked \"Can be signed out of turn\" that you may sign now, without waiting to be given the job. The steps before them are recorded as skipped."
+  text_approval_quick_failed: "That did not go through. Open the issue to see why."
 
   button_approve: "Approve"
   button_reject_approval: "Reject"

@@ -170,6 +170,31 @@ class SkipStepTest < Redmine::ControllerTest
     assert_equal 1, @issue.reload.approval_position
   end
 
+  # --- signing a claim with a comment ---------------------------------------
+
+  # "Ký kèm ý kiến" goes through a second page, so the step has to survive the
+  # round trip. Without it the form would post back and sign whatever step
+  # happened to be due -- the very substitution the refusal above prevents.
+  def test_the_comment_form_for_a_claim_carries_the_step
+    @second.update!(:allow_skip => true)
+    @request.session[:user_id] = 2
+
+    get :new, :params => {:issue_id => @issue.id, :decision => 'approve',
+                          :step_id => @second.id}
+
+    assert_response :success
+    assert_select 'input[type=hidden][name=step_id][value=?]', @second.id.to_s
+  end
+
+  def test_the_ordinary_comment_form_names_no_step
+    @request.session[:user_id] = 2
+
+    get :new, :params => {:issue_id => @issue.id, :decision => 'approve'}
+
+    assert_response :success
+    assert_select 'input[type=hidden][name=step_id]', 0
+  end
+
   # --- an extension chain never skips ---------------------------------------
 
   def test_an_extension_step_is_never_skippable

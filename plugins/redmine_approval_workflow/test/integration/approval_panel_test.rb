@@ -599,7 +599,7 @@ class ApprovalPanelTest < Redmine::IntegrationTest
   # instance for everybody, which is far worse than losing the bell.
   def test_a_broken_bell_does_not_take_every_page_down
     build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
-    RedmineApprovalWorkflow::PendingApprovals.stubs(:for_user).raises(StandardError, 'boom')
+    RedmineApprovalWorkflow::PendingApprovals.stubs(:evaluate).raises(StandardError, 'boom')
     log_user('jsmith', 'jsmith')
 
     ['/', "/projects/#{@issue.project.identifier}", "/issues/#{@issue.id}"].each do |path|
@@ -872,6 +872,78 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     assert_equal 2, @issue.reload.status_id
   end
 
+  # --- the bell's "work you can take on" list --------------------------------
+
+  # dlopper is nobody's approver on the step that is due, so nothing is waiting
+  # for them -- and yet the chain has a step they may take on themselves.
+  def test_bell_lists_work_the_user_can_take_on
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    set_step_approvers(route.step_at(0), ['user:4'])
+    route.step_at(1).update!(:allow_skip => true, :button_label => 'Nhận việc')
+    set_step_approvers(route.step_at(1), ['user:3'])
+    log_user('dlopper', 'foo')
+
+    get '/'
+
+    assert_response :success
+    assert_select '#approval-bell .approval-bell-claimable' do
+      assert_select 'h4', :text => /#{Regexp.escape(::I18n.t(:label_self_claimable_plural))}/
+      # step_id is what makes this a claim and not a signature on whatever step
+      # happens to be due.
+      assert_select 'form[action=?]',
+                    "/issues/#{@issue.id}/approvals?decision=approve&step_id=#{route.step_at(1).id}" do
+        assert_select 'input[type=submit][value=?]', 'Nhận việc'
+      end
+    end
+  end
+
+  def test_bell_does_not_list_a_claim_the_workflow_denies
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    set_step_approvers(route.step_at(0), ['user:4'])
+    route.step_at(1).update!(:allow_skip => true)
+    set_step_approvers(route.step_at(1), ['user:3'])
+    WorkflowTransition.where(:tracker_id => @issue.tracker_id, :role_id => 2,
+                             :old_status_id => 1, :new_status_id => 3).delete_all
+    log_user('dlopper', 'foo')
+
+    get '/'
+
+    assert_response :success
+    assert_select '#approval-bell .approval-bell-claimable', 0
+  end
+
+  # An issue already under "waiting for my signature" must not be repeated
+  # here; it is the same reminder twice.
+  def test_bell_does_not_list_the_same_issue_in_both_sections
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    route.step_at(1).update!(:allow_skip => true)
+    log_user('jsmith', 'jsmith')
+
+    get '/'
+
+    assert_response :success
+    assert_select '#approval-bell .approval-bell-section:not(.approval-bell-claimable) .approval-bell-item',
+                  :minimum => 1
+    assert_select '#approval-bell .approval-bell-claimable', 0
+  end
+
+  # --- acting without losing the page ---------------------------------------
+
+  # The buttons stay plain form posts so they work with no JavaScript; the
+  # script on the bell is what keeps the page the user is reading on screen.
+  def test_bell_quick_actions_are_posted_in_the_background
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    log_user('jsmith', 'jsmith')
+
+    get '/'
+
+    assert_response :success
+    assert_select '#approval-bell .approval-bell-item[data-approval-row]', :minimum => 1
+    assert_include "bell.addEventListener('submit'", @response.body
+    assert_include "event.preventDefault()", @response.body
+    assert_include "'Accept': 'application/json'", @response.body
+  end
+
   def test_bell_shows_overdue_issues_assigned_to_the_user
     @issue.update_columns(:assigned_to_id => 2, :due_date => Date.today - 5)
     log_user('jsmith', 'jsmith')
@@ -890,8 +962,12 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     get '/'
 
     assert_response :success
-    assert_select '#approval-bell span.approval-bell-count', 0
-    assert_select '#approval-bell .approval-bell-empty'
+    # The badge and the empty notice are both always in the DOM so the quick
+    # action can swap them as it clears the last row; what matters is which of
+    # them the visitor can see.
+    assert_select '#approval-bell span.approval-bell-count[hidden]'
+    assert_select '#approval-bell span.approval-bell-count:not([hidden])', 0
+    assert_select '#approval-bell .approval-bell-empty:not([hidden])'
   end
 
   def test_bell_is_hidden_for_anonymous_visitors
@@ -970,6 +1046,22 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     get '/pending_approvals'
     assert_response :success
     assert_select "table.issues a[href=?]", "/issues/#{@issue.id}", 0
+  end
+
+  def test_pending_page_lists_work_the_user_can_take_on
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    set_step_approvers(route.step_at(0), ['user:4'])
+    route.step_at(1).update!(:allow_skip => true, :button_label => 'Nhận việc')
+    set_step_approvers(route.step_at(1), ['user:3'])
+    log_user('dlopper', 'foo')
+
+    get '/pending_approvals'
+
+    assert_response :success
+    assert_select 'form[action=?]',
+                  "/issues/#{@issue.id}/approvals?decision=approve&step_id=#{route.step_at(1).id}" do
+      assert_select 'input[type=submit][value=?]', 'Nhận việc'
+    end
   end
 
   def test_pending_page_requires_login
