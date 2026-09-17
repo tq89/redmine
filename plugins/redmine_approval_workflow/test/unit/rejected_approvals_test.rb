@@ -111,11 +111,25 @@ class RejectedApprovalsTest < ActiveSupport::TestCase
 
   # --- scope ------------------------------------------------------------------
 
-  def test_closed_issues_are_not_listed
-    @issue.update_columns(:assigned_to_id => @user.id, :status_id => 5)
+  # A refusal into a CLOSED status -- "Rejected" is one in stock Redmine --
+  # ends the work rather than handing it back. It is not a task, and it would
+  # never clear either, because nobody signs a closed chain again. The mail
+  # still goes out, so the person is told once; the bell stays a list of
+  # things to do.
+  def test_a_refusal_that_closes_the_issue_is_not_a_task
+    @issue.update_columns(:assigned_to_id => @user.id, :status_id => 6)
     record(ApprovalSignature::REJECTED)
 
+    assert IssueStatus.find(6).is_closed?, 'fixture must be a closed status'
     assert_equal [], rejected_ids
+  end
+
+  def test_a_refusal_into_an_open_status_is_listed
+    @issue.update_columns(:assigned_to_id => @user.id, :status_id => 4)
+    record(ApprovalSignature::REJECTED)
+
+    assert_not IssueStatus.find(4).is_closed?
+    assert_includes rejected_ids, @issue.id
   end
 
   def test_a_project_without_the_module_is_not_listed

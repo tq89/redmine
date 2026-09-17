@@ -106,6 +106,14 @@ Góc phải thanh trên cùng, ngay cạnh nút profile, có **nút chuông** v�
   đúng bước đó chứ không ký bước đang tới lượt; các bước bị nhảy qua ghi là
   *Đã bỏ qua*. Một công việc đã nằm ở mục **Chờ tôi ký** thì không lặp lại ở
   đây — cùng một lời nhắc, không nhắc hai lần.
+
+  > ⚠️ Hệ quả đáng lưu ý: nếu bước **"Giao việc"** để trống *Người ký* thì
+  > **ai có quyền chuyển trạng thái cũng là người đang chờ ký nó** — kể cả
+  > nhân viên. Khi đó chuông hiện "Giao việc" ở mục *Chờ tôi ký* và **không**
+  > hiện "Nhận việc" ở mục *tự nhận*, vì đã nhắc một lần rồi. Muốn nhân viên
+  > thấy đúng nút "Nhận việc" thì **chỉ định người ký cho bước "Giao việc"**
+  > (vai trò quản lý chẳng hạn). Nút *Nhận việc* vẫn luôn có trên lưu trình ở
+  > trang công việc dù cấu hình thế nào.
 - **Đơn gia hạn chờ tôi duyệt** — mỗi dòng hiện công việc, tên bước và mốc ngày
   đang xin (`cũ → mới`), kèm nút duyệt nhanh có hộp xác nhận.
 - **Công việc quá hạn** — việc đang mở được giao cho bạn (hoặc cho nhóm của
@@ -520,6 +528,18 @@ ký" và dòng đó biến mất — đúng nếp tự dọn của cả cái chu
 
 Chuông và hộp thư dùng **chung một quy tắc người nhận**, nên không bao giờ có
 chuyện báo trên chuông một đằng, gửi mail một nẻo.
+
+> ⚠️ **Nếu trạng thái từ chối là một trạng thái ĐÓNG** (Redmine gốc: *Closed*,
+> *Rejected*) thì **chuông không hiện dòng nào** — chỉ có email. Cố ý như vậy:
+> việc đã đóng là việc **kết thúc**, không phải việc trả lại để làm tiếp, nên
+> nó không thuộc danh sách việc cần xử lý; mà nó cũng sẽ **không bao giờ tự
+> hết**, vì chuỗi đã đóng thì không ai ký tiếp nữa — dòng đó sẽ nằm lì trên
+> chuông vĩnh viễn.
+>
+> Muốn nhân viên **thấy trên chuông** thì chọn trạng thái từ chối là một
+> trạng thái **mở** — *Feedback*, *In Progress*, hay một trạng thái riêng kiểu
+> "Trả lại chỉnh sửa". Chọn *Rejected* nghĩa là "dẹp luôn hồ sơ này", và khi
+> đó email là kênh báo.
 
 ### "Cho ký vượt" — tự nhận việc không cần ai giao
 

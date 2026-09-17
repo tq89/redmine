@@ -50,6 +50,11 @@
                   <% approval_step_effect_labels(step).each do |effect| %>
                     <span class="approval-assign-badge"><%= h effect %></span>
                   <% end %>
+                  <%# Where a refusal goes is half of what a step does, so the
+                      summary shows it the same way the issue panel does. %>
+                  <% if (reject = approval_step_reject_label(step)) %>
+                    <span class="approval-reject-badge"><%= h reject %></span>
+                  <% end %>
                 </li>
               <% end %>
             </ol>

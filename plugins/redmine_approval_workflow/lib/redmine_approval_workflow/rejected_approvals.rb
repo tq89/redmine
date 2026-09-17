@@ -38,6 +38,13 @@ module RedmineApprovalWorkflow
       end
     end
 
+    # Open issues only, deliberately. A refusal that sends the issue into a
+    # CLOSED status -- "Rejected" is one, in stock Redmine -- ends the work
+    # rather than handing it back, so it is not a task and does not belong on
+    # a to-do list. It would also never clear: nobody signs a closed chain
+    # again, so the row would sit there for good. The rejection mail has no
+    # such filter, so the person is still told once; it is the bell that stays
+    # a list of things to do.
     def candidates(user)
       Issue.visible(user).open.
         where(audience_sql, :ids => [user.id] + user.group_ids, :me => user.id).
