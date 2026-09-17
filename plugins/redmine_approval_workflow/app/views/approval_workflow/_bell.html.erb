@@ -3,9 +3,10 @@
   # shown at all.
   pending = User.current.pending_approval_issues
   claimable = User.current.self_claimable_approvals
+  rejected = User.current.rejected_approval_issues
   extensions = User.current.pending_extension_requests
   overdue = User.current.overdue_issues
-  total = pending.size + claimable.size + extensions.size + overdue.size
+  total = pending.size + claimable.size + rejected.size + extensions.size + overdue.size
 %>
 <div id="approval-bell" class="dropdown" data-controller="dropdown">
   <a href="#" class="dropdown-trigger approval-bell-trigger <%= 'has-items' if total > 0 %>"
@@ -92,6 +93,36 @@
                                                            :step_id => step.id),
                             :class => 'approval-bell-detail' %>
               </span>
+            </li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <% if rejected.any? %>
+      <div class="approval-bell-section approval-bell-rejected" data-approval-section>
+        <h4>
+          <%= l(:label_rejected_issue_plural) %>
+          (<span data-approval-section-count><%= rejected.size %></span>)
+        </h4>
+        <ul>
+          <% rejected.each do |issue, signature| %>
+            <%# No button: what is needed here is the reason, and then the
+                issue itself. Whoever has to sign it again finds it under
+                "chờ tôi ký" like anything else. %>
+            <li class="approval-bell-item">
+              <%= link_to "#{h issue.tracker.name} ##{issue.id}", issue_path(issue),
+                          :class => 'approval-bell-ref' %>
+              <span class="approval-bell-subject"><%= h issue.subject.truncate(60) %></span>
+              <span class="approval-bell-meta">
+                <%= h issue.project.name %>
+                &middot; <%= h signature.step_name %>
+                &middot; <%= h signature.user.to_s %>,
+                <%= format_time signature.created_at %>
+              </span>
+              <% if signature.comments.present? %>
+                <span class="approval-bell-reason"><%= h signature.comments.truncate(120) %></span>
+              <% end %>
             </li>
           <% end %>
         </ul>

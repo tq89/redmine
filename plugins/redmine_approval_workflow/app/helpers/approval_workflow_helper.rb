@@ -100,6 +100,17 @@ module ApprovalWorkflowHelper
     labels
   end
 
+  # Where a refusal of this step sends the issue, as it reads in the chain.
+  # nil for the default -- back down the chain needs no label, it is what a
+  # chain does.
+  def approval_step_reject_label(step)
+    if step.reject_keeps_status?
+      l(:label_reject_badge_keep)
+    elsif step.reject_into_status? && step.reject_status
+      l(:label_reject_badge_status, :status => step.reject_status.name)
+    end
+  end
+
   # How a step's approver list reads wherever a chain is shown. nil when the
   # step leaves it to the workflow.
   def approval_step_approver_label(step)

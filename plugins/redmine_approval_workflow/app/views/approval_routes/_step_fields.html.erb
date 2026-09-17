@@ -32,7 +32,20 @@
     <%= sf.hidden_field :assign_signer, :value => '0' %>
     <%= sf.hidden_field :assign_author, :value => '0' %>
     <%= sf.hidden_field :allow_skip, :value => '0' %>
+    <%= sf.hidden_field :reject_mode, :value => ApprovalRouteStep::REJECT_PREVIOUS %>
   <% else %>
+    <td class="approval-step-reject">
+      <%= sf.select :reject_mode,
+                    [[l(:label_reject_mode_previous), ApprovalRouteStep::REJECT_PREVIOUS],
+                     [l(:label_reject_mode_keep), ApprovalRouteStep::REJECT_KEEP],
+                     [l(:label_reject_mode_status), ApprovalRouteStep::REJECT_STATUS]],
+                    {}, :class => 'approval-reject-mode' %>
+      <%# Only read in "status" mode; the model clears it in the other two, so
+          a status left behind here never looks like it still applies. %>
+      <%= sf.select :reject_status_id,
+                    [[l(:label_none), '']] + IssueStatus.sorted.map {|s| [s.name, s.id]},
+                    {}, :class => 'approval-reject-status' %>
+    </td>
     <td class="approval-step-assign">
       <label><%= sf.check_box :allow_skip %> <%= l(:label_allow_skip) %></label>
       <label><%= sf.check_box :assign_signer %> <%= l(:label_assign_signer) %></label>

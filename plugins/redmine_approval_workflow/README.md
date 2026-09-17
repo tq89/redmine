@@ -99,6 +99,8 @@ Góc phải thanh trên cùng, ngay cạnh nút profile, có **nút chuông** v�
 - **Chờ tôi ký** — mỗi dòng hiện mã công việc, tiêu đề, dự án, tên bước và
   trạng thái sẽ chuyển sang; kèm **nút ký nhanh** (dùng đúng nhãn của bước, có
   hộp xác nhận) và liên kết *Ký kèm ý kiến* nếu muốn ghi chú.
+- **Việc của tôi bị từ chối** — việc bạn đang thực hiện vừa bị một bước ký từ
+  chối, kèm bước nào, ai từ chối và lý do. Tự hết khi lưu trình được ký tiếp.
 - **Việc có thể tự nhận** — bước phía sau trong lưu trình có bật *Cho ký vượt*
   mà bạn ký được ngay, không cần chờ ai giao. Nút gửi kèm `step_id` nên nó ký
   đúng bước đó chứ không ký bước đang tới lượt; các bước bị nhảy qua ghi là
@@ -260,7 +262,9 @@ Mail được gửi khi:
 - tạo công việc mới thuộc tracker có lưu trình (bước 1 lập tức chờ ký);
 - ai đó **ký duyệt** xong, bước kế tiếp chuyển sang người khác — hoặc, với bước
   AND, tới lượt người kế tiếp **trong cùng bước**;
-- ai đó **từ chối**, công việc trả về bước trước đó;
+- ai đó **từ chối**: người ký của bước được trả về nhận mail như thường, **và**
+  người thực hiện (hoặc tác giả nếu chưa giao) nhận một mail riêng báo việc bị
+  trả lại kèm lý do — xem *"Báo cho người thực hiện khi bị từ chối"*;
 - có **đơn xin gia hạn** mới, hoặc một bước gia hạn vừa được ký và tới lượt
   người sau. Đơn đã duyệt xong hoặc đã bị từ chối thì không gửi cho ai nữa.
 
@@ -363,6 +367,7 @@ Mỗi **bước** khai báo:
 | **Người ký** | **danh sách** có thứ tự: **Người thực hiện**, **Tác giả**, các **vai trò**, các **người** cụ thể; **bắt buộc** với bước gia hạn |
 | **Cách ký** | *Một người bất kỳ (OR)* hoặc *Tất cả, theo thứ tự (AND)* |
 | **Nhãn nút** | chữ trên nút thao tác, ví dụ "Trình ký", "Phê duyệt"; để trống = "Ký duyệt" |
+| **Khi từ chối** | *Trả về bước trước* (mặc định), *Giữ nguyên trạng thái*, *Chuyển sang trạng thái đã chọn* |
 | **Khi ký xong** | *Cho ký vượt*, *Giao việc cho người ký* (→ Người thực hiện), *Đặt người ký làm tác giả* (→ Tác giả) |
 
 Bảng bước có nút **"Thêm bước"** để thêm dòng, nên lưu trình dài bao nhiêu bước
@@ -457,6 +462,64 @@ công việc cho chuyển trạng thái thì mới ký được.
 Hai mục này ăn khớp với hai ô *Khi ký xong*: bước "Nhận việc" có thể vừa để
 *Người thực hiện* ký vừa *Giao việc cho người ký*, bước "Giao việc" có thể vừa
 để *Tác giả* ký vừa *Đặt người ký làm tác giả*.
+
+### "Khi từ chối" — trả về đâu, và ai được từ chối
+
+Trước đây nơi công việc quay về khi bị từ chối do **lưu trình** quyết định:
+trạng thái mà bước liền trước để lại, hoặc — nếu đang ở bước đầu — trường
+*"Trạng thái khi bị từ chối"* của lưu trình. Ai không khai báo trường đó thì ở
+hai vị trí đầu chuỗi **không có nơi nào để trả về**, nên **nút Từ chối không
+hiện**, và không có gì nói vì sao. Đó đúng là chỗ nút từ chối biến mất.
+
+Nay mỗi bước tự quyết:
+
+| Khi từ chối | Công việc đi đâu | Ai được từ chối |
+|---|---|---|
+| **Trả về bước trước** (mặc định) | như cũ: trạng thái bước trước để lại, hoặc *Trạng thái khi bị từ chối* của lưu trình ở đầu chuỗi | người có quyền chuyển sang trạng thái đó |
+| **Giữ nguyên trạng thái** | không đi đâu cả — công việc đứng nguyên | **người ký được bước đó** |
+| **Chuyển sang trạng thái đã chọn** | đúng trạng thái chỉ định, dù chuỗi đang ở đâu | người có quyền chuyển sang trạng thái đó |
+
+Mặc định là *Trả về bước trước*, nên **lưu trình đang chạy không đổi hành vi**.
+
+Chỗ đáng chú ý là dòng giữa: **giữ nguyên trạng thái thì không có chuyển trạng
+thái nào để xét quyền**. Nguyên tắc gốc của plugin — quyền ký = quyền chuyển
+trạng thái — không có gì để bám vào. Nên ở chế độ này quyền từ chối lấy theo
+phát biểu tự nhiên nhất: **ai ký được bước đó thì từ chối được bước đó**. Không
+ký được thì cũng không từ chối được; từ chối một bước mình không bao giờ ký
+được thì đó là sửa công việc chứ không phải từ chối.
+
+Dù ở chế độ nào, **chuỗi vẫn lùi một bước** (trừ khi đang ở bước đầu). "Giữ
+nguyên trạng thái" nói về **trạng thái công việc**, không phải vị trí trong lưu
+trình — có lùi thì người trước mới phải trình lại.
+
+Bước nào có cấu hình khác mặc định thì trên lưu trình hiện một thẻ đỏ nhỏ
+("Từ chối: giữ trạng thái" / "Từ chối → Tên trạng thái"), để nhìn là biết.
+
+Và khi một bước **vẫn** không biết trả về đâu, panel nói thẳng ra chỗ cần sửa
+thay vì lặng lẽ giấu nút — mất một vòng hỏi lại vì chuyện này là đủ rồi.
+
+### Báo cho người thực hiện khi bị từ chối
+
+Từ chối là tin của **người phải làm lại**, không phải của hàng chờ ký. Với
+*Giữ nguyên trạng thái* thì lại càng đúng: không có gì chuyển, hàng chờ ký
+không hề thay đổi, nếu chỉ dựa vào nó thì chẳng ai biết.
+
+Nên khi một bước bị từ chối, plugin báo riêng cho **người thực hiện** — hoặc
+**tác giả** nếu công việc chưa giao cho ai (phải có người biết, mà việc chưa
+giao thì vẫn có người tạo):
+
+- **Trên nút chuông** và trang `/pending_approvals`: mục **"Việc của tôi bị từ
+  chối"**, kèm bước nào, ai từ chối, lúc nào, và **lý do** đã ghi. Không có
+  nút bấm — cái cần ở đây là lý do, còn ký lại thì đã nằm ở mục *Chờ tôi ký*.
+- **Email**: theo cùng công tắc *Gửi email khi tới lượt ký*, nội dung là bước,
+  người từ chối và lý do.
+
+Mục này **tự hết**, không phải bấm để tắt: nó chỉ đơn giản là *chữ ký mới nhất
+của chuỗi đang là "từ chối"*. Ai ký tiếp một cái là chữ ký mới nhất thành "đã
+ký" và dòng đó biến mất — đúng nếp tự dọn của cả cái chuông.
+
+Chuông và hộp thư dùng **chung một quy tắc người nhận**, nên không bao giờ có
+chuyện báo trên chuông một đằng, gửi mail một nẻo.
 
 ### "Cho ký vượt" — tự nhận việc không cần ai giao
 

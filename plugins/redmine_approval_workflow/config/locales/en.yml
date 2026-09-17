@@ -73,6 +73,22 @@ en:
   label_no_self_claimable: "There is nothing for you to take on right now."
   text_self_claimable_hint: "Steps marked \"Can be signed out of turn\" that you may sign now, without waiting to be given the job. The steps before them are recorded as skipped."
   text_approval_quick_failed: "That did not go through. Open the issue to see why."
+  label_rejected_issue_plural: "My work that was refused"
+  label_no_rejected_issue: "None of your work is currently refused."
+  label_rejected_by: "Refused by"
+  text_rejected_issue_hint: "Work assigned to you that a step has just refused. The entry clears itself once the chain is signed again."
+
+  label_reject_mode: "On refusal"
+  label_reject_mode_previous: "Back to the previous step (default)"
+  label_reject_mode_keep: "Keep the current status"
+  label_reject_mode_status: "Move to the chosen status"
+  label_reject_badge_keep: "Refusal: status unchanged"
+  label_reject_badge_status: "Refusal → %{status}"
+  text_reject_mode_hint: "\"On refusal\" decides where the issue goes when this step is refused. **Back to the previous step**: as before -- the status the step before it left behind, or the route's \"Status when rejected\" at the head of the chain; with neither configured there is **no reject button**, because there is nowhere to send it. **Keep the current status**: the refusal is recorded and the assignee is told, and the issue stays exactly where it is -- with no status change to read the permission off, whoever may sign the step is who may refuse it. **Move to the chosen status**: straight into that status, and the workflow still has to allow the move."
+  warning_no_reject_status: "This step has nowhere to send a refusal, so there is no reject button. Set \"On refusal\" for the step under Project settings -> Approval routes, or give the route a \"Status when rejected\"."
+
+  mail_subject_approval_rejected: "Refused in the approval chain"
+  mail_body_approval_rejected: "Your work has just been refused at step \"%{step}\"."
 
   button_approve: "Approve"
   button_reject_approval: "Reject"
@@ -81,6 +97,7 @@ en:
   notice_approval_skipped: "Signed \"%{step}\" ahead of turn; the steps before it are marked skipped."
   notice_approval_signed_waiting: "Signed. This step is still waiting on %{name}."
   notice_approval_rejected: "Rejected and sent back one step."
+  notice_approval_rejected_kept: "Rejected. The issue status is unchanged; the assignee has been told."
 
   error_approval_already_completed: "The approval route is already complete, there is no step left to sign."
   error_approval_no_target_status: "No target status could be determined. Check the route configuration."

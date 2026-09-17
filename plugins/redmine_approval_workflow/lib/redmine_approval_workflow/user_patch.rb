@@ -35,6 +35,12 @@ module RedmineApprovalWorkflow
       @pending_extension_requests ||= ExtensionApproval.pending_for(self)
     end
 
+    # [issue, rejecting signature] pairs: work of this user's that somebody
+    # refused. Memoised like the rest; the bell asks once, the page asks again.
+    def rejected_approval_issues
+      @rejected_approval_issues ||= RejectedApprovals.for_user(self)
+    end
+
     # Open issues assigned to this user, or to one of their groups, whose due
     # date has passed. One query, capped, shown alongside the signing queue.
     OVERDUE_LIMIT = 20

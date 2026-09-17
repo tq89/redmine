@@ -1,0 +1,15 @@
+<%= l(:mail_body_approval_rejected, :step => @step_name) %>
+
+<%= @issue.tracker.name %> #<%= @issue.id %>: <%= @issue.subject %>
+<%= l(:label_project) %>: <%= @issue.project.name %>
+<%= l(:field_status) %>: <%= @status_name %>
+<%= l(:label_approval_step) %>: <%= @step_name %>
+<% if @author %><%= l(:label_rejected_by) %>: <%= @author %>
+<% end %><% if @issue.due_date %><%= l(:field_due_date) %>: <%= format_date(@issue.due_date) %>
+<% end %>
+<% if @comments.present? %><%= l(:field_comments) %>:
+<%= @comments %>
+<% end %>
+--
+<%= l(:text_approval_mail_footer) %>
+<%= @issue_url %>

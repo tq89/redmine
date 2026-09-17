@@ -1,0 +1,42 @@
+<p><%= l(:mail_body_approval_rejected, :step => h(@step_name)) %></p>
+
+<table>
+  <tr>
+    <td><strong><%= l(:label_issue) %></strong></td>
+    <td><%= link_to "#{h @issue.tracker.name} ##{@issue.id}: #{h @issue.subject}", @issue_url %></td>
+  </tr>
+  <tr>
+    <td><strong><%= l(:label_project) %></strong></td>
+    <td><%= h @issue.project.name %></td>
+  </tr>
+  <tr>
+    <td><strong><%= l(:label_approval_step) %></strong></td>
+    <td><%= h @step_name %></td>
+  </tr>
+  <tr>
+    <td><strong><%= l(:field_status) %></strong></td>
+    <td><%= h @status_name %></td>
+  </tr>
+  <% if @author %>
+    <tr>
+      <td><strong><%= l(:label_rejected_by) %></strong></td>
+      <td><%= h @author.to_s %></td>
+    </tr>
+  <% end %>
+  <% if @issue.due_date %>
+    <tr>
+      <td><strong><%= l(:field_due_date) %></strong></td>
+      <td><%= format_date(@issue.due_date) %></td>
+    </tr>
+  <% end %>
+</table>
+
+<% if @comments.present? %>
+  <p><strong><%= l(:field_comments) %></strong></p>
+  <blockquote><%= textilizable @comments %></blockquote>
+<% end %>
+
+<p><%= link_to l(:label_issue), @issue_url %></p>
+
+<hr />
+<p><%= l(:text_approval_mail_footer) %> <%= link_to @issue_url, @issue_url %></p>

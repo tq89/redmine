@@ -872,6 +872,123 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     assert_equal 2, @issue.reload.status_id
   end
 
+  # --- the reject button ------------------------------------------------------
+
+  # The report that started this: a route with no rejected status has nowhere
+  # to send a refusal at the head of the chain, so the button never rendered
+  # and nothing said why.
+  def test_the_panel_says_why_there_is_no_reject_button
+    build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select 'div.approval-workflow' do
+      assert_select "a[href=?]", "/issues/#{@issue.id}/approvals/new?decision=reject", 0
+      assert_select '.approval-reject-hint'
+    end
+  end
+
+  def test_a_step_that_says_where_a_refusal_goes_gets_its_button_back
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    route.step_at(0).update!(:reject_mode => ApprovalRouteStep::REJECT_KEEP)
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select 'div.approval-workflow' do
+      assert_select "a[href=?]", "/issues/#{@issue.id}/approvals/new?decision=reject"
+      assert_select '.approval-reject-hint', 0
+      assert_select '.approval-reject-badge',
+                    :text => ::I18n.t(:label_reject_badge_keep)
+    end
+  end
+
+  def test_the_chain_shows_the_status_a_refusal_moves_to
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    route.step_at(0).update!(:reject_mode => ApprovalRouteStep::REJECT_STATUS,
+                             :reject_status_id => 6)
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select '.approval-reject-badge',
+                  :text => ::I18n.t(:label_reject_badge_status,
+                                    :status => IssueStatus.find(6).name)
+  end
+
+  def test_the_route_form_offers_the_reject_setting_and_keeps_it
+    Role.find(1).add_permission!(:manage_approval_routes)
+    identifier = @issue.project.identifier
+    log_user('jsmith', 'jsmith')
+
+    get "/projects/#{identifier}/approval_routes/new"
+    assert_response :success
+    assert_select 'select[name=?]', 'approval_route[steps_attributes][0][reject_mode]'
+    assert_select 'select[name=?]', 'approval_route[steps_attributes][0][reject_status_id]'
+
+    assert_difference 'ApprovalRoute.count', 1 do
+      post "/projects/#{identifier}/approval_routes", :params => {
+        :approval_route => {
+          :name => 'Có từ chối', :tracker_ids => [@issue.tracker_id.to_s],
+          :steps_attributes => {
+            '0' => {:name => 'Duyệt', :position => '0', :issue_status_id => '2',
+                    :approval_mode => 'any',
+                    :reject_mode => ApprovalRouteStep::REJECT_STATUS,
+                    :reject_status_id => '6'}
+          }
+        }
+      }
+    end
+
+    step = ApprovalRoute.order(:id).last.step_at(0)
+    assert_equal ApprovalRouteStep::REJECT_STATUS, step.reject_mode
+    assert_equal 6, step.reject_status_id
+  end
+
+  # --- the bell's "your work came back" list ---------------------------------
+
+  def test_bell_tells_the_assignee_their_work_was_refused
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    @issue.update_columns(:assigned_to_id => 2)
+    ApprovalSignature.create!(:issue => @issue, :approval_route => route,
+                              :step_position => 0, :user_id => 3,
+                              :step_name => 'Duyệt', :comments => 'Thiếu thuyết minh',
+                              :action => ApprovalSignature::REJECTED)
+    log_user('jsmith', 'jsmith')
+
+    get '/'
+
+    assert_response :success
+    assert_select '#approval-bell .approval-bell-rejected' do
+      assert_select 'h4', :text => /#{Regexp.escape(::I18n.t(:label_rejected_issue_plural))}/
+      assert_select '.approval-bell-reason', :text => /Thiếu thuyết minh/
+    end
+  end
+
+  def test_the_bell_notice_clears_once_the_chain_moves_again
+    route = build_route(:tracker_id => @issue.tracker_id, :statuses => [2, 3])
+    @issue.update_columns(:assigned_to_id => 2)
+    ApprovalSignature.create!(:issue => @issue, :approval_route => route,
+                              :step_position => 0, :user_id => 3,
+                              :action => ApprovalSignature::REJECTED)
+    log_user('jsmith', 'jsmith')
+
+    get '/'
+    assert_select '#approval-bell .approval-bell-rejected'
+
+    ApprovalSignature.create!(:issue => @issue, :approval_route => route,
+                              :step_position => 0, :user_id => 2,
+                              :action => ApprovalSignature::APPROVED)
+
+    get '/'
+    assert_response :success
+    assert_select '#approval-bell .approval-bell-rejected', 0
+  end
+
   # --- the bell's "work you can take on" list --------------------------------
 
   # dlopper is nobody's approver on the step that is due, so nothing is waiting

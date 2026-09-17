@@ -31,6 +31,27 @@ class ApprovalMailer < Mailer
                      "#{l(:mail_subject_approval_pending)}"
   end
 
+  # A refusal, to the person who has to do something about it. What they need
+  # is which step said no, who said it, and why -- the comment is the whole
+  # point of the mail.
+  def approval_rejected(user, issue, step_name, comments, actor_id = nil)
+    redmine_headers 'Project' => issue.project.identifier,
+                    'Issue-Tracker' => issue.tracker.name,
+                    'Issue-Id' => issue.id
+    @author = User.find_by_id(actor_id)
+    @user = user
+    @issue = issue
+    @step_name = step_name
+    @comments = comments
+    @status_name = issue.status.name
+    @issue_url = url_for(:controller => 'issues', :action => 'show', :id => issue)
+    @message_id_object = issue
+
+    mail :to => user,
+         :subject => "[#{issue.project.name} - #{issue.tracker.name} ##{issue.id}] " \
+                     "#{l(:mail_subject_approval_rejected)}"
+  end
+
   # Same idea for an extension request. It carries no status change, so what the
   # recipient needs to see is the deadline being asked for and why.
   def extension_pending(user, extension, step_name, actor_id = nil)
@@ -68,6 +89,44 @@ class ApprovalMailer < Mailer
         approval_pending(user, issue, step.name, step.issue_status.name,
                          actor&.id).deliver_later
       end
+    end
+
+    # Tells the person whose work it is that a step refused it. Being handed
+    # something back is news you need whether or not you are the next signer,
+    # so this does not go through the signing queue.
+    def deliver_approval_rejected(issue, signature = nil)
+      return unless enabled?
+      return unless issue.approval_route?
+
+      actor = signature&.user
+      rejected_recipients(issue, actor).each do |user|
+        approval_rejected(user, issue, signature&.step_name,
+                          signature&.comments, actor&.id).deliver_later
+      end
+    end
+
+    # Người thực hiện, or the person who raised it when it is assigned to
+    # nobody -- somebody has to be told, and an unassigned issue still has an
+    # author. RejectedApprovals uses the same rule so the bell and the inbox
+    # never disagree about who was notified.
+    def rejected_recipients(issue, actor = nil)
+      targets = assignee_users(issue)
+      targets = Array(issue.author) if targets.empty?
+
+      targets.uniq.select do |user|
+        next false if actor && user.id == actor.id
+        next false if user.mail.blank? || user.mail_notification == 'none'
+
+        user.active? && issue.visible?(user)
+      end
+    end
+
+    def assignee_users(issue)
+      principal = issue.assigned_to
+      return [] if principal.nil?
+      return principal.users.select(&:active?).to_a if principal.is_a?(Group)
+
+      principal.is_a?(User) && principal.active? ? [principal] : []
     end
 
     # Notifies whoever can now sign +extension+.

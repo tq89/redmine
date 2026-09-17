@@ -43,7 +43,10 @@
         <th><%= l(:label_approver_plural) %></th>
         <th><%= l(:label_approval_mode) %></th>
         <th><%= l(:label_button_label) %></th>
-        <% unless @route.extension? %><th><%= l(:label_after_signing) %></th><% end %>
+        <% unless @route.extension? %>
+          <th><%= l(:label_reject_mode) %></th>
+          <th><%= l(:label_after_signing) %></th>
+        <% end %>
         <th><%= l(:button_delete) %></th>
       </tr>
     </thead>
@@ -63,6 +66,7 @@
   <em class="info"><%= l(:text_approval_mode_hint) %></em>
   <em class="info"><%= l(:text_button_label_hint) %></em>
   <% unless @route.extension? %>
+    <em class="info"><%= l(:text_reject_mode_hint) %></em>
     <em class="info"><%= l(:text_allow_skip_hint) %></em>
     <em class="info"><%= l(:text_assign_signer_hint) %></em>
     <em class="info"><%= l(:text_assign_author_hint) %></em>

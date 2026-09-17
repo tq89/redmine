@@ -74,6 +74,22 @@ vi:
   label_no_self_claimable: "Không có việc nào bạn tự nhận được lúc này."
   text_self_claimable_hint: "Các bước được đánh dấu \"Cho ký vượt\" mà bạn ký được ngay, không cần chờ ai giao. Các bước trước sẽ ghi là bỏ qua."
   text_approval_quick_failed: "Không thực hiện được. Hãy mở công việc để xem."
+  label_rejected_issue_plural: "Việc của tôi bị từ chối"
+  label_no_rejected_issue: "Không có việc nào của bạn đang bị từ chối."
+  label_rejected_by: "Người từ chối"
+  text_rejected_issue_hint: "Việc bạn đang thực hiện vừa bị từ chối ở một bước ký. Mục này tự hết khi lưu trình được ký tiếp."
+
+  label_reject_mode: "Khi từ chối"
+  label_reject_mode_previous: "Trả về bước trước (mặc định)"
+  label_reject_mode_keep: "Giữ nguyên trạng thái"
+  label_reject_mode_status: "Chuyển sang trạng thái đã chọn"
+  label_reject_badge_keep: "Từ chối: giữ trạng thái"
+  label_reject_badge_status: "Từ chối → %{status}"
+  text_reject_mode_hint: "\"Khi từ chối\" quyết định công việc đi đâu nếu bước này bị từ chối. **Trả về bước trước**: như cũ — về trạng thái mà bước liền trước để lại, hoặc về \"Trạng thái khi bị từ chối\" của lưu trình nếu đang ở bước đầu; lưu trình chưa khai báo trạng thái đó thì **không có nút Từ chối**, vì không biết trả về đâu. **Giữ nguyên trạng thái**: ghi nhận việc từ chối và báo cho người thực hiện, công việc đứng nguyên tại chỗ — khi đó quyền từ chối = quyền ký bước đó, vì không có chuyển trạng thái nào để xét. **Chuyển sang trạng thái đã chọn**: về đúng trạng thái chỉ định, và vẫn phải có quyền chuyển sang trạng thái đó."
+  warning_no_reject_status: "Bước này chưa biết từ chối thì trả về đâu, nên không có nút Từ chối. Vào Cài đặt dự án → Lưu trình ký, đặt \"Khi từ chối\" cho bước, hoặc khai báo \"Trạng thái khi bị từ chối\" cho lưu trình."
+
+  mail_subject_approval_rejected: "Bị từ chối trong lưu trình ký"
+  mail_body_approval_rejected: "Công việc của bạn vừa bị từ chối ở bước \"%{step}\"."
 
   button_approve: "Ký duyệt"
   button_reject_approval: "Từ chối"
@@ -82,6 +98,7 @@ vi:
   notice_approval_skipped: "Đã ký vượt tới bước \"%{step}\"; các bước trước được đánh dấu bỏ qua."
   notice_approval_signed_waiting: "Đã ký. Bước này còn chờ %{name}."
   notice_approval_rejected: "Đã từ chối và trả lại bước trước."
+  notice_approval_rejected_kept: "Đã từ chối. Trạng thái công việc giữ nguyên; người thực hiện đã được báo."
 
   error_approval_already_completed: "Lưu trình ký đã hoàn tất, không còn bước nào để ký."
   error_approval_no_target_status: "Không xác định được trạng thái đích. Hãy kiểm tra cấu hình lưu trình."

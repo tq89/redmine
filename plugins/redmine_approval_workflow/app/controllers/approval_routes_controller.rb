@@ -78,7 +78,8 @@ class ApprovalRoutesController < ApplicationController
       # approver_tokens is the chip row: one entry per chip, in the order the
       # chips sit in, which is the order an "all" step collects signatures in.
       :steps_attributes => [:id, :name, :issue_status_id, :position,
-                            :approval_mode, :button_label, :assign_signer, :assign_author, :allow_skip, :_destroy,
+                            :approval_mode, :button_label, :assign_signer, :assign_author, :allow_skip,
+                            :reject_mode, :reject_status_id, :_destroy,
                             {:approver_tokens => []}]
     )
   end

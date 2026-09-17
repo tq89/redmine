@@ -86,6 +86,44 @@
   <p class="nodata"><%= l(:label_no_self_claimable) %></p>
 <% end %>
 
+<h3><%= l(:label_rejected_issue_plural) %></h3>
+
+<% if @rejected.any? %>
+  <p class="nodata-hint"><%= l(:text_rejected_issue_hint) %></p>
+
+  <table class="list issues">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th><%= l(:label_project) %></th>
+        <th><%= l(:field_subject) %></th>
+        <th><%= l(:field_status) %></th>
+        <th><%= l(:label_approval_step) %></th>
+        <th><%= l(:label_rejected_by) %></th>
+        <th><%= l(:field_comments) %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @rejected.each do |issue, signature| %>
+        <tr class="issue">
+          <td><%= link_to issue.id, issue_path(issue) %></td>
+          <td><%= link_to_project issue.project %></td>
+          <td><%= link_to issue.subject, issue_path(issue) %></td>
+          <td><%= h issue.status.name %></td>
+          <td><%= h signature.step_name %></td>
+          <td>
+            <%= link_to_user signature.user %>,
+            <%= format_time signature.created_at %>
+          </td>
+          <td><%= h signature.comments %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p class="nodata"><%= l(:label_no_rejected_issue) %></p>
+<% end %>
+
 <h3><%= l(:label_pending_extension_plural) %></h3>
 
 <% if @extensions.any? %>

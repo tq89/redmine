@@ -107,11 +107,20 @@ module RedmineApprovalWorkflow
       current_approval_step&.issue_status
     end
 
-    # Status the issue falls back to when the pending step is rejected: the
-    # status left behind by the step before the one being undone, or the
-    # route's dedicated rejected status at the head of the chain.
+    # Status the issue moves to when the pending step is rejected.
+    #
+    # The step decides. Only when it has nothing to say does this fall back to
+    # the route: the status left behind by the step before the one being
+    # undone, or the route's dedicated rejected status at the head of the
+    # chain. That fallback is what every chain did before the setting existed,
+    # and it answers nil for a route with no rejected status configured -- the
+    # reason the reject button was nowhere to be seen on such a route.
     def approval_reject_target_status
       return nil unless approval_route?
+
+      step = current_approval_step
+      return status if step&.reject_keeps_status?
+      return step.reject_status if step&.reject_into_status?
 
       position = approval_position
       if position <= 1
@@ -174,11 +183,32 @@ module RedmineApprovalWorkflow
 
     def can_reject_approval?(user = User.current)
       return false unless approval_route?
-      return false if approval_position.zero? && approval_signatures.empty? &&
-                      approval_route.rejected_status.nil?
+
+      step = current_approval_step
+      # A refusal that keeps the status moves nothing, so there is no
+      # transition to read the permission off. The rule becomes the plain one:
+      # whoever may sign this step is who may refuse it.
+      return approval_signable_by?(user, approval_target_status, step) if step&.reject_keeps_status?
+
+      target = approval_reject_target_status
+      # Nowhere to send it means there is nothing to offer. approval_reject_hint
+      # is what tells an administrator why, instead of leaving them hunting for
+      # a button that was never going to appear.
+      return false if target.nil?
 
       # Rejecting is the pending step's decision too, so the same person holds it.
-      approval_signable_by?(user, approval_reject_target_status, current_approval_step)
+      approval_signable_by?(user, target, step)
+    end
+
+    # Why the reject button is not being offered, when the user could otherwise
+    # act on this step. nil when there is nothing to explain.
+    def approval_reject_hint(user = User.current)
+      return nil unless approval_route?
+      return nil if can_reject_approval?(user)
+      return nil unless can_approve?(user)
+      return nil unless approval_reject_target_status.nil?
+
+      :warning_no_reject_status
     end
 
     # Wording of the approve button for the step awaiting a signature.

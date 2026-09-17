@@ -19,8 +19,22 @@ class ApprovalRouteStep < ApplicationRecord
   ALL_MODE = 'all'
   MODES = [ANY_MODE, ALL_MODE].freeze
 
+  # Where a refusal of this step sends the issue.
+  #
+  #   previous -- back down the chain: the status left by the step before the
+  #               one being undone, or the route's rejected status at the head.
+  #               What every chain did before this was configurable.
+  #   keep     -- nowhere. The refusal is recorded and whoever has to act on it
+  #               is told, but the issue stays exactly where it is.
+  #   status   -- into +reject_status+, whatever the chain is doing.
+  REJECT_PREVIOUS = 'previous'
+  REJECT_KEEP = 'keep'
+  REJECT_STATUS = 'status'
+  REJECT_MODES = [REJECT_PREVIOUS, REJECT_KEEP, REJECT_STATUS].freeze
+
   belongs_to :approval_route, :inverse_of => :steps
   belongs_to :issue_status, :optional => true
+  belongs_to :reject_status, :class_name => 'IssueStatus', :optional => true
 
   has_many :approvers, lambda {order(:position, :id)},
            :class_name => 'ApprovalRouteApprover',
@@ -34,7 +48,12 @@ class ApprovalRouteStep < ApplicationRecord
   validate :validate_extension_approver
   validates :button_label, :length => {:maximum => 255}
   validates :approval_mode, :inclusion => {:in => MODES}
+  validates :reject_mode, :inclusion => {:in => REJECT_MODES}
   validates :position, :numericality => {:only_integer => true, :greater_than_or_equal_to => 0}
+  # A step told to reject into a status has to name one, or the button would
+  # vanish again for exactly the reason this setting exists.
+  validates :reject_status_id, :presence => true, :if => :reject_into_status?
+  before_validation :clear_unused_reject_status
 
   # Wording of the action button for this step.
   def action_label
@@ -61,6 +80,19 @@ class ApprovalRouteStep < ApplicationRecord
   # where whoever assigns the work is the one who really owns raising it.
   def assigns_author?
     assign_author? && !extension_step?
+  end
+
+  # A refusal that moves nothing. There is then no status change to read the
+  # signing permission off, so the rule becomes the plain one: whoever may sign
+  # this step is who may refuse it.
+  def reject_keeps_status?
+    reject_mode == REJECT_KEEP && !extension_step?
+  end
+
+  # A refusal that sends the issue into one named status, wherever the chain
+  # happens to be.
+  def reject_into_status?
+    reject_mode == REJECT_STATUS && !extension_step?
   end
 
   def any_mode?
@@ -170,6 +202,12 @@ class ApprovalRouteStep < ApplicationRecord
       kept << approver
     end
     (approvers.to_a - kept).each(&:mark_for_destruction)
+  end
+
+  # A status left over from a mode the step no longer uses would sit in the
+  # form looking like it still applied.
+  def clear_unused_reject_status
+    self.reject_status_id = nil unless reject_into_status?
   end
 
   # Without a workflow transition behind it, the approver list is the only

@@ -93,6 +93,10 @@ class ApprovalsController < ApplicationController
     # Somebody is always handed the next move: the next name on this step, the
     # next step, or the previous one after a rejection.
     ApprovalMailer.deliver_approval_pending(@issue.reload, User.current)
+    # And the person whose work it is hears that it came back. They are often
+    # not the next signer -- with "giữ nguyên trạng thái" nothing moves at all
+    # -- so this is a separate message, not a side effect of the queue.
+    ApprovalMailer.deliver_approval_rejected(@issue, @signature) unless @approving
 
     approval_reply(:notice, decision_notice)
   rescue ActiveRecord::RecordInvalid => e
@@ -224,7 +228,12 @@ class ApprovalsController < ApplicationController
 
   # A step still collecting signatures says so, and names who it is waiting on.
   def decision_notice
-    return l(:notice_approval_rejected) unless @approving
+    unless @approving
+      # "Trả lại bước trước" would be a lie when the issue did not move.
+      return l(:notice_approval_rejected_kept) if @step&.reject_keeps_status?
+
+      return l(:notice_approval_rejected)
+    end
     return l(:notice_approval_skipped, :step => @step.name) if @completes_step && @skipping
     return l(:notice_approval_signed) if @completes_step
 
