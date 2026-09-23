@@ -1,7 +1,11 @@
 <%
   # Rendered only from _layout_additions, which decides whether the bell is
   # shown at all.
-  pending = User.current.pending_approval_issues
+  # [issue, step] pairs. The step comes with the row on purpose: asking each
+  # issue for its own step here re-runs the route lookup and reloads the
+  # signatures, which is four queries a row on a panel that renders on every
+  # page of the site.
+  pending = User.current.pending_approvals
   claimable = User.current.self_claimable_approvals
   rejected = User.current.rejected_approval_issues
   extensions = User.current.pending_extension_requests
@@ -33,8 +37,7 @@
           (<span data-approval-section-count><%= pending.size %></span>)
         </h4>
         <ul>
-          <% pending.each do |issue| %>
-            <% step = issue.current_approval_step %>
+          <% pending.each do |issue, step| %>
             <li class="approval-bell-item" data-approval-row>
               <%= link_to "#{h issue.tracker.name} ##{issue.id}", issue_path(issue),
                           :class => 'approval-bell-ref' %>
@@ -45,12 +48,12 @@
                 &rarr; <%= h step&.issue_status&.name %>
               </span>
               <span class="approval-bell-actions">
-                <%= button_to issue.approval_action_label,
+                <%= button_to step.action_label,
                               issue_approvals_path(issue, :decision => 'approve'),
                               :method => :post,
                               :class => 'approval-bell-sign',
                               :data => {:confirm => l(:text_confirm_quick_sign,
-                                                      :status => step&.issue_status&.name)} %>
+                                                      :status => step.issue_status&.name)} %>
                 <%= link_to l(:label_approval_with_comment),
                             new_issue_approval_path(issue, :decision => 'approve'),
                             :class => 'approval-bell-detail' %>

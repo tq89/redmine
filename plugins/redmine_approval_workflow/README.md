@@ -148,9 +148,27 @@ chạy bình thường.
 
 **Về hiệu năng** — mục này render trên *mọi* trang, nên phép tra cứu được viết
 theo lô: routes, chữ ký và workflow transitions mỗi thứ lấy **một** lần rồi
-đối chiếu trong bộ nhớ. Số query **không tăng theo số lượng issue**
-(đo được: 26 query với 3 issue, vẫn 26 query với 43 issue). Nếu gọi thẳng
-`Issue#can_approve?` cho từng issue thì tốn ~10 query/issue.
+đối chiếu trong bộ nhớ. Số query **không tăng theo số lượng issue**. Nếu gọi
+thẳng `Issue#can_approve?` cho từng issue thì tốn ~10 query/issue.
+
+> **Bài học phải trả giá bằng một đợt 504.** Tra cứu theo lô thì gọn, nhưng
+> *view* lại vứt kết quả đi rồi hỏi lại từng dòng: `issue.current_approval_step`
+> chạy lại `ApprovalRoute.for_issue` và nạp lại chữ ký — **4 query mỗi dòng**,
+> trên cái chuông render ở **mọi trang**. Một trăm dòng là bốn trăm query thừa
+> mỗi lần tải trang, với **mọi người dùng đang đăng nhập**. Test đếm query cho
+> riêng phần tra cứu **không nhìn thấy gì cả**, vì phần tra cứu vẫn đúng 18
+> query như đã ghim.
+>
+> Nay mỗi dòng mang sẵn bước của nó (`[issue, step]`), và `PageCostTest` đếm
+> query **trên trang đã render** chứ không đếm ở tầng dưới. Đo lại trên bộ dữ
+> liệu 2000 issue:
+>
+> | Trang | Trước | Sau |
+> |---|---|---|
+> | `GET /` (chỉ có chuông) | 450 query / 325ms | **42 query / 58ms** |
+> | `GET /issues/N` (panel + chuông) | 548 query / 431ms | **130 query** — bằng đúng Redmine gốc |
+> | `GET /issues/N/approvals/new` | 455 query / 319ms | **48 query / 58ms** |
+> | `GET /pending_approvals` | 455 query / 316ms | **47 query / 51ms** |
 
 Hai danh sách **Chờ tôi ký** và **Việc có thể tự nhận** lấy ra trong *cùng một*
 lượt (`PendingApprovals.evaluate`, nhớ tạm trên `User.current`), dùng chung
@@ -165,10 +183,29 @@ phải sửa bên kia.**
 
 Danh sách quá hạn tốn thêm đúng **một** truy vấn, giới hạn 20 dòng.
 
-Phần đơn gia hạn đi theo đường khác: bước gia hạn không dựa vào chuyển trạng
-thái nên không có bộ lọc SQL nào rẻ để bám vào. Bù lại, tập đơn **đang chờ**
-vốn đã rất nhỏ (chỉ những đơn chưa ai quyết), nên nó được nạp thẳng rồi lọc
-trong bộ nhớ.
+Phần đơn gia hạn từng là chỗ hổng thứ hai, cùng một đợt 504. Bản đầu tin rằng
+"tập đơn đang chờ vốn đã rất nhỏ" nên nạp **toàn bộ** đơn chưa quyết trong cả
+hệ thống rồi hỏi từng cái trong Ruby. Mà `IssueExtension#signable_by?` đọc
+quyền-trên-trường của công việc, thứ Redmine nhớ tạm **theo từng đối tượng
+Issue** — mỗi đơn mang một đối tượng riêng — nên thành **1 query `workflows`
+mỗi đơn đang chờ, trên mọi trang, với mọi người dùng**. 600 đơn mở = 600 query
+thừa mỗi lần tải trang.
+
+Hai chỗ sửa:
+
+1. **Lọc trước bằng SQL.** Bước gia hạn *bắt buộc* chỉ định người ký, nên vẫn
+   có bộ lọc rẻ: chỉ giữ những lưu trình có **nhắc tên người này** (theo người,
+   theo vai trò, hoặc qua ô Người thực hiện / Tác giả khớp với công việc). Nó
+   chỉ **nới rộng**, không bao giờ loại nhầm đơn của ai — việc tới lượt ai vẫn
+   do `signable_by?` quyết sau đó.
+2. **Đổi thứ tự câu hỏi trong `signable_by?`.** Hỏi "tới lượt ai" trước (miễn
+   phí, trong bộ nhớ), rồi mới hỏi quyền-trên-trường (tốn query). Cùng một câu
+   trả lời, rẻ hơn hẳn.
+
+Kết quả: 600 đơn của người khác từ **615 query / 380ms** xuống **4 query /
+2.6ms**. Trường hợp cực đoan — một người là người ký của *tất cả* đơn đang mở —
+bị chặn bởi `CANDIDATE_LIMIT` và trang `/pending_approvals` báo rõ khi danh
+sách bị cắt.
 
 Quản trị viên có thể tắt chuông (Quản trị → Plugins → Cấu hình) nếu máy chủ yếu.
 
@@ -295,6 +332,25 @@ nhìn thấy công việc.
 delivery job và tuỳ chọn *"Không gửi thông báo về thay đổi do tôi tạo ra"*.
 Lỗi gửi mail lúc tạo công việc được bắt lại và ghi log — không bao giờ làm
 hỏng việc tạo công việc.
+
+### Tính người nhận nằm ngoài request
+
+`deliver_later` mới chỉ đẩy việc **gửi** ra khỏi request; việc **tính ai là
+người nhận** thì vẫn nằm trong đó — và nó không hề rẻ. Bước **không chỉ định
+người ký** thì mở cho mọi thành viên nắm chuyển trạng thái, và mỗi ứng viên lại
+bị hỏi `Issue#can_approve?` (~12 query). Đo được: dự án **113 thành viên** →
+**1469 query, 2.8 giây**, **ngay trong POST mà người bấm nút đang chờ**. Trên
+máy chủ đang căng, đó chính là chỗ đẻ ra gateway timeout khi ký.
+
+Nay toàn bộ phần đó nằm trong `ApprovalNotificationJob`. POST ký chỉ trả
+**8 query / ~44ms** rồi trả lời ngay; job tự tính người nhận và gửi. Redmine
+mặc định chạy ActiveJob bằng adapter `:async` (thread trong chính tiến trình
+Puma) nên không cần cài thêm gì.
+
+> Mẹo cấu hình đi kèm: **chỉ định người ký cho mỗi bước**. Bước để trống nghĩa
+> là "ai có quyền chuyển trạng thái cũng ký được", và cũng có nghĩa là **cả
+> trăm người nhận mail** cho mỗi lần ký. Bước có chỉ định người ký: **39 query,
+> 1 mail**.
 
 > Redmine mặc định dùng ActiveJob adapter `:async` (chạy thread trong chính
 > tiến trình Puma). Nếu máy chủ đang căng, cân nhắc kỹ trước khi bật thêm

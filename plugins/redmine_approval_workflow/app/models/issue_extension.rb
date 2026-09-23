@@ -110,10 +110,16 @@ class IssueExtension < ApplicationRecord
 
     step = current_approval_step
     return false if step.nil?
+    # Whose turn it is comes first, deliberately. It is the narrowest question
+    # and it is answered entirely in memory, while read_only_attribute_names
+    # below costs a query per issue -- Redmine memoises field permissions per
+    # Issue INSTANCE, and a list of requests carries one instance each. Asking
+    # the expensive question first meant a query for every pending request in
+    # the database on every page load. Same answer, cheaper order.
+    return false unless step.signable_by?(user, issue, approval_step_signatures)
     return false unless issue.attributes_editable?(user)
-    return false if issue.read_only_attribute_names(user).include?('due_date')
 
-    step.signable_by?(user, issue, approval_step_signatures)
+    issue.read_only_attribute_names(user).exclude?('due_date')
   end
 
   # The approver slot +user+ is filling on the pending step.

@@ -78,7 +78,21 @@ class ApprovalMailer < Mailer
   class << self
     # Notifies whoever can now sign +issue+. +actor+ is the person whose action
     # created this turn and is never notified of their own move.
+    #
+    # Only enqueues. Working out the recipients means asking can_approve? per
+    # candidate, which on a step that names nobody is every member holding the
+    # transition -- seconds of work that used to sit inside the POST that
+    # signed the step.
     def deliver_approval_pending(issue, actor = nil)
+      return unless enabled?
+      return unless issue.approval_route? && !issue.approval_completed?
+
+      ApprovalNotificationJob.perform_later('issue', issue.id, actor&.id)
+    end
+
+    # The work itself, run by the job. Separate so tests and a console can
+    # still do it synchronously.
+    def send_approval_pending(issue, actor = nil)
       return unless enabled?
       return unless issue.approval_route? && !issue.approval_completed?
 
@@ -129,8 +143,16 @@ class ApprovalMailer < Mailer
       principal.is_a?(User) && principal.active? ? [principal] : []
     end
 
-    # Notifies whoever can now sign +extension+.
+    # Notifies whoever can now sign +extension+. Enqueued for the same reason
+    # as the one above.
     def deliver_extension_pending(extension, actor = nil)
+      return unless enabled?
+      return unless extension.pending?
+
+      ApprovalNotificationJob.perform_later('extension', extension.id, actor&.id)
+    end
+
+    def send_extension_pending(extension, actor = nil)
       return unless enabled?
       return unless extension.pending?
 

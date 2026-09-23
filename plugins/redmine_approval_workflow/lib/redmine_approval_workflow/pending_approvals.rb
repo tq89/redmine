@@ -29,6 +29,14 @@ module RedmineApprovalWorkflow
 
     # Issues whose pending step this user may sign.
     def for_user(user)
+      evaluate(user)[:pending].map(&:first)
+    end
+
+    # [issue, step] pairs for the same set. The step is carried rather than
+    # looked up again: Issue#current_approval_step re-runs ApprovalRoute
+    # .for_issue and reloads the signatures, so a view that asked each row for
+    # its own step turned this bounded lookup back into four queries per row.
+    def pending_for_user(user)
       evaluate(user)[:pending]
     end
 
@@ -83,7 +91,10 @@ module RedmineApprovalWorkflow
 
         if step && step.signable_by?(user, issue, collected) &&
            transition_allowed?(user, issue, step.issue_status, transitions)
-          pending << issue
+          # The step travels with the issue. Everything that displays a row
+          # needs it, and asking the issue for it again is what turned a
+          # bounded lookup into one query per row in the view.
+          pending << [issue, step]
           # Already actionable from the waiting list; listing the same issue
           # again under "can take on" would be the same reminder twice.
           next

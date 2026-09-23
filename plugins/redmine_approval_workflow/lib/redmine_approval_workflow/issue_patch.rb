@@ -15,6 +15,10 @@ module RedmineApprovalWorkflow
     module Reload
       def reload(*)
         remove_instance_variable(:@approval_route) if defined?(@approval_route)
+        # The decision memo is keyed on everything the answer depends on, but
+        # not on the route's own steps -- a route edited in the meantime must
+        # not be answered from a memo either.
+        remove_instance_variable(:@approval_decisions) if defined?(@approval_decisions)
         super
       end
     end
@@ -174,30 +178,55 @@ module RedmineApprovalWorkflow
       current_approval_step&.approver_for(user, self, approval_step_signatures)
     end
 
-    def can_approve?(user = User.current)
-      return false unless approval_route?
-      return false if approval_completed?
+    # can_approve? and can_reject_approval? are asked several times over while
+    # one issue page renders: the chain rows, the button bar, the floating
+    # header, and the hint that explains a missing reject button all ask again.
+    # Each answer costs a new_statuses_allowed_to, which is several queries, so
+    # one issue page was spending about a hundred queries re-deriving the same
+    # two booleans.
+    #
+    # The key holds every input the answer depends on -- who is asking, the
+    # status the issue is in, the two people the workflow can key transitions
+    # on, and how far the chain has got -- so a memo can never outlive the fact
+    # it recorded. ApprovalsController changes all of those while signing and
+    # then asks again; it gets a fresh answer because the key changed.
+    def approval_decision(kind, user)
+      key = [kind, user&.id, status_id, assigned_to_id, author_id, approval_signatures.length]
+      @approval_decisions ||= {}
+      return @approval_decisions[key] if @approval_decisions.key?(key)
 
-      approval_signable_by?(user, approval_target_status, current_approval_step)
+      @approval_decisions[key] = yield
+    end
+
+    def can_approve?(user = User.current)
+      approval_decision(:approve, user) do
+        next false unless approval_route?
+        next false if approval_completed?
+
+        approval_signable_by?(user, approval_target_status, current_approval_step)
+      end
     end
 
     def can_reject_approval?(user = User.current)
-      return false unless approval_route?
+      approval_decision(:reject, user) do
+        next false unless approval_route?
 
-      step = current_approval_step
-      # A refusal that keeps the status moves nothing, so there is no
-      # transition to read the permission off. The rule becomes the plain one:
-      # whoever may sign this step is who may refuse it.
-      return approval_signable_by?(user, approval_target_status, step) if step&.reject_keeps_status?
+        step = current_approval_step
+        # A refusal that keeps the status moves nothing, so there is no
+        # transition to read the permission off. The rule becomes the plain
+        # one: whoever may sign this step is who may refuse it.
+        next can_approve?(user) if step&.reject_keeps_status?
 
-      target = approval_reject_target_status
-      # Nowhere to send it means there is nothing to offer. approval_reject_hint
-      # is what tells an administrator why, instead of leaving them hunting for
-      # a button that was never going to appear.
-      return false if target.nil?
+        target = approval_reject_target_status
+        # Nowhere to send it means there is nothing to offer.
+        # approval_reject_hint is what tells an administrator why, instead of
+        # leaving them hunting for a button that was never going to appear.
+        next false if target.nil?
 
-      # Rejecting is the pending step's decision too, so the same person holds it.
-      approval_signable_by?(user, target, step)
+        # Rejecting is the pending step's decision too, so the same person
+        # holds it.
+        approval_signable_by?(user, target, step)
+      end
     end
 
     # Why the reject button is not being offered, when the user could otherwise

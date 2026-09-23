@@ -11,8 +11,14 @@ module RedmineApprovalWorkflow
       @approval_reminders ||= PendingApprovals.evaluate(self)
     end
 
-    def pending_approval_issues
+    # [issue, step] pairs. Views want both, and looking the step up again per
+    # row costs four queries a row.
+    def pending_approvals
       approval_reminders[:pending]
+    end
+
+    def pending_approval_issues
+      pending_approvals.map(&:first)
     end
 
     # [issue, step] pairs: work this user can take on without waiting for
