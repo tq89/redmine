@@ -1,0 +1,42 @@
+#!/bin/sh
+# ImageMagick wrapper for Redmine's attachment thumbnails.
+#
+# Point Redmine at it in config/configuration.yml:
+#
+#   imagemagick_convert_command: /usr/src/redmine/plugins/redmine_approval_workflow/bin/convert-thumbnail
+#
+# Why: Redmine runs `convert <photo> -auto-orient -thumbnail 200x200> <out>`,
+# and ImageMagick decodes the WHOLE photo at full resolution before shrinking
+# it. A 12-megapixel phone photo measured 108 MB of RAM for a 200px thumbnail,
+# and an issue page with several photos asks for all of them at once. On a
+# server already short of memory that tips it into swap, every request slows
+# to a crawl, and Traefik answers 504.
+#
+#   -define jpeg:size=800x800  lets libjpeg decode straight to a reduced size
+#                              (DCT scaling) instead of the full image. It
+#                              never goes below 800px, and Redmine caps
+#                              thumbnails at 800px, so quality is unchanged.
+#                              Measured: 108 MB -> 29 MB, twice as fast.
+#   -limit memory/map          caps any other image (a huge PNG, say): past
+#                              the cap ImageMagick works from disk instead of
+#                              taking more RAM.
+#   -limit thread 1            one CPU per conversion, so thumbnails cannot
+#                              starve the web server.
+#
+# Redmine also runs `<this> -version` once, at the first thumbnail, to decide
+# whether thumbnails are available at all. That call has to go through
+# untouched: `convert -limit ... -version` is an error ("no images defined"),
+# Redmine reads the failure as "ImageMagick is missing", and thumbnails switch
+# off silently for every attachment until the next restart.
+for bin in /usr/bin/convert /usr/local/bin/convert /usr/bin/magick /usr/local/bin/magick; do
+  if [ -x "$bin" ]; then
+    case "$1" in
+      -version|--version) exec "$bin" "$@" ;;
+    esac
+    exec "$bin" -limit memory 64MiB -limit map 128MiB -limit thread 1 \
+      -define jpeg:size=800x800 "$@"
+  fi
+done
+
+echo "convert-thumbnail: ImageMagick (convert or magick) not found" >&2
+exit 127

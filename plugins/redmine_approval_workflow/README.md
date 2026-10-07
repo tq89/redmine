@@ -356,6 +356,48 @@ Puma) nên không cần cài thêm gì.
 > tiến trình Puma). Nếu máy chủ đang căng, cân nhắc kỹ trước khi bật thêm
 > nguồn gửi mail.
 
+## Thumbnail ảnh chụp điện thoại làm máy chủ hết RAM
+
+Không liên quan tới lưu trình ký. Nó nằm ở đây vì mọi tuỳ biến của máy chủ đều
+đi theo plugin này và theo quy trình `rm -rf` + `cp` khi cập nhật.
+
+Redmine tạo thumbnail bằng `convert <ảnh> -auto-orient -thumbnail 200x200> <ra>`,
+và ImageMagick **giải nén nguyên ảnh ở độ phân giải đầy đủ** rồi mới thu nhỏ.
+Mở một công việc có nhiều ảnh thì trình duyệt xin tất cả thumbnail **cùng lúc**.
+Đo trên ảnh 12MP (cỡ ảnh chụp điện thoại):
+
+| | 1 ảnh | 4 ảnh cùng lúc |
+|---|---|---|
+| Lệnh gốc của Redmine | 108 MB | **433 MB** |
+| Qua `bin/convert-thumbnail` | 29 MB | **119 MB** |
+
+Trên máy đã thiếu RAM, cú tăng đó đẩy máy sang swap, mọi request chậm tới mức
+Traefik trả **504**. Và nó không tự hồi phục: Redmine giết `convert` sau 10 giây
+(`thumbnails_generation_timeout`), không ghi được file thumbnail, nên người kế
+tiếp mở công việc đó lại kích hoạt đúng vòng ấy lần nữa.
+
+`bin/convert-thumbnail` thêm vào lệnh của Redmine:
+
+- `-define jpeg:size=800x800`: libjpeg giải nén thẳng ra cỡ nhỏ thay vì cỡ đầy
+  đủ. Không bao giờ nhỏ hơn 800px, mà Redmine giới hạn thumbnail ở 800px, nên
+  chất lượng không đổi (chênh 0,4% so với lệnh gốc).
+- `-limit memory 64MiB -limit map 128MiB`: ảnh khác (PNG cực lớn chẳng hạn) quá
+  ngưỡng thì ImageMagick làm việc trên đĩa thay vì ăn thêm RAM.
+- `-limit thread 1`: mỗi lần chuyển đổi một nhân CPU, không giành CPU của web.
+
+Bật bằng một dòng trong `config/configuration.yml` (trong khối `production:`
+hoặc `default:`):
+
+```yaml
+  imagemagick_convert_command: /usr/src/redmine/plugins/redmine_approval_workflow/bin/convert-thumbnail
+```
+
+> Bẫy đã gặp khi viết: Redmine gọi `<lệnh> -version` một lần để xem có
+> ImageMagick không. `convert -limit ... -version` là lỗi ("no images defined"),
+> Redmine hiểu thành "không có ImageMagick" và **lặng lẽ tắt thumbnail cho mọi
+> tệp** tới lần khởi động sau. Wrapper cho `-version` đi thẳng qua; đã thử
+> bằng chính `Redmine::Thumbnail.generate`.
+
 ## Không sửa một file core nào
 
 Toàn bộ plugin nằm gọn trong `plugins/redmine_approval_workflow/`. Kiểm chứng:
