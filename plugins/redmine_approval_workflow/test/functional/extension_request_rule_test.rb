@@ -518,6 +518,60 @@ class ExtensionRequestRuleTest < Redmine::ControllerTest
     assert_no_match(/from\s+to|từ\s+sang/, flash[:error].to_s)
   end
 
+  # --- findings from the third adversarial round ------------------------------
+
+  # With the module off there is no extension feature: nobody withdraws, and
+  # nobody approves a deadline into place either. Before, withdrawing was
+  # refused while approvers could still move the date.
+  def test_with_the_module_off_nobody_decides
+    chain!
+    request_extension
+    extension = IssueExtension.last
+    EnabledModule.where(:project_id => @issue.project_id, :name => 'approval_workflow').delete_all
+
+    assert_not extension.reload.signable_by?(User.find(2))
+    assert_not extension.withdrawable_by?(User.find(3))
+    assert_not_includes RedmineApprovalWorkflow::ExtensionApproval.pending_for(User.find(2)).map(&:id),
+                        extension.id
+    @request.session[:user_id] = 2
+    post :approve, :params => {:issue_id => @issue.id, :id => extension.id}
+
+    assert_response :forbidden
+    assert_equal @due, issue.due_date
+  end
+
+  # Issue#destroy locks the issue and then deletes its extension requests. A
+  # final approval that locked the request first and the issue second could
+  # deadlock against it (reproduced on PostgreSQL). SQLite cannot deadlock, but
+  # the order of the locking reads is visible: the issue row must come first.
+  def test_a_final_approval_locks_the_issue_before_the_request
+    chain!
+    request_extension
+    extension = IssueExtension.find(IssueExtension.last.id)
+    # Only reads inside decide's own transaction count: signable_by? has
+    # already read the issue before it, which would make this pass whatever
+    # the lock order. Under transactional tests that transaction is a SAVEPOINT.
+    reads = []
+    in_transaction = false
+    counter = lambda do |_n, _s, _f, _i, payload|
+      sql = payload[:sql].to_s
+      in_transaction = true if sql =~ /\A\s*(SAVEPOINT|BEGIN)/i
+      next unless in_transaction && sql.start_with?('SELECT')
+
+      reads << :issue if sql =~ /FROM "issues" WHERE "issues"\."id" = /
+      reads << :extension if sql =~ /FROM "issue_extensions" WHERE "issue_extensions"\."id" = /
+    end
+    ActiveSupport::Notifications.subscribed(counter, 'sql.active_record') do
+      RedmineApprovalWorkflow::ExtensionApproval.decide(extension, User.find(2), :approve => true)
+    end
+
+    first_extension = reads.index(:extension)
+    assert first_extension, 'the request is re-read under the lock'
+    assert reads[0...first_extension].include?(:issue),
+           "the issue row must be locked before the request; read order was #{reads.inspect}"
+    assert_equal @due + 10, issue.due_date
+  end
+
   def format_date(date)
     ::I18n.l(date)
   end

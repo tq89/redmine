@@ -161,6 +161,10 @@ class IssueExtension < ApplicationRecord
     # the expensive question first meant a query for every pending request in
     # the database on every page load. Same answer, cheaper order.
     return false unless step.signable_by?(user, issue, approval_step_signatures)
+    # A project that is closed or archived, or has the module switched off, has
+    # no extension feature to decide anything with -- the same test withdrawing
+    # uses, so neither side can act where the other is refused.
+    return false unless issue.project&.allows_to?(:extend_issue_due_date)
 
     # The final signature writes due_date, so every signer must be someone the
     # issue form would let change it: the edit right, the field permissions,

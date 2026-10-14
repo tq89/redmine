@@ -24,6 +24,14 @@ module RedmineApprovalWorkflow
         # approver may have decided it since. Without this, a request the
         # requester was told is withdrawn could still be applied, or a granted
         # extension end up marked withdrawn and stop counting toward the limit.
+        #
+        # Lock order matters as much as locking. Issue#destroy locks the issue
+        # (its whole tree) and only then deletes its extension requests, so the
+        # issue row is taken first here too. Locking the request first had a
+        # final approval and a deletion of the same issue each holding what the
+        # other needed -- a deadlock, reproduced on PostgreSQL, that turned a
+        # deletion that used to succeed into a 500.
+        extension.issue.lock!
         extension.lock!
         extension.approval_signatures.reset
         raise ActiveRecord::Rollback unless extension.signable_by?(user)
