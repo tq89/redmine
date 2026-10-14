@@ -227,6 +227,210 @@ class ExtensionRequestRuleTest < Redmine::ControllerTest
     assert_response :forbidden
   end
 
+  # --- findings from the adversarial review ----------------------------------
+
+  # Somebody else's work stays somebody else's on the no-chain path too: the
+  # panel must not tell a colleague to "ask a manager for a route" when a route
+  # would still not let them ask.
+  def test_an_uninvolved_colleague_is_not_involved_without_a_chain_either
+    strip_edit_rights!
+    @issue.update_columns(:assigned_to_id => 2)
+
+    assert_equal :not_involved, issue.extension_request_denial(User.find(3))
+  end
+
+  # Involvement is decided before the limit, so a colleague is not shown a
+  # "used up" hint that suggests a higher limit would let them ask.
+  def test_involvement_is_decided_before_the_limit
+    chain!
+    strip_edit_rights!
+    @issue.update_columns(:assigned_to_id => 2)
+    set_plugin_settings('max_extension_count' => '1')
+    IssueExtension.create!(:issue => @issue, :user_id => 2, :status => IssueExtension::APPROVED,
+                           :previous_due_date => @due, :new_due_date => @due + 5, :reason => 'x')
+
+    assert_equal :not_involved, issue.extension_request_denial(User.find(3))
+    @issue.update_columns(:assigned_to_id => 3)
+    assert_equal :limit_reached, issue.extension_request_denial(User.find(3))
+  end
+
+  # logged? guards only the author match. An anonymous EDITOR could file a
+  # pending request before; taking that away while still letting the same
+  # visitor write the date at once (no chain) would be backwards.
+  def test_an_anonymous_editor_may_still_ask_on_a_chain
+    chain!
+    project = @issue.project
+    project.update_columns(:is_public => true)
+    Role.anonymous.add_permission!(:extend_issue_due_date, :edit_issues, :view_issues)
+    Role.anonymous.update_columns(:issues_visibility => 'all')
+
+    assert issue.attributes_editable?(User.anonymous), 'fixture: anonymous may edit here'
+    assert_nil issue.extension_request_denial(User.anonymous)
+  end
+
+  # The route lookup is a query or two and runs for every viewer of every
+  # issue page; nobody without the permission should pay for it.
+  def test_no_route_lookup_for_someone_without_the_permission
+    chain!
+    @employee_role.remove_permission!(:extend_issue_due_date)
+    loaded = issue
+    route_queries = 0
+    counter = lambda do |_n, _s, _f, _i, payload|
+      route_queries += 1 if payload[:sql].to_s.include?(ApprovalRoute.table_name)
+    end
+    ActiveSupport::Notifications.subscribed(counter, 'sql.active_record') do
+      assert_equal :no_permission, loaded.extension_request_denial(User.find(3))
+    end
+
+    assert_equal 0, route_queries
+  end
+
+  # A parent whose dates come from its subtasks cannot be moved through the
+  # form, so it cannot be moved through an extension either -- not by the
+  # requester, and not by an approver signing it.
+  def test_a_parent_with_derived_dates_takes_no_extension
+    chain!
+    Role.find(1).add_permission!(:extend_issue_due_date)   # jsmith, the approver
+    with_settings :parent_issue_dates => 'derived' do
+      Issue.generate!(:project_id => @issue.project_id, :tracker_id => @issue.tracker_id,
+                      :subject => 'Con', :parent_issue_id => @issue.id)
+      parent = issue
+
+      assert parent.dates_derived?
+      assert_equal :due_date_derived, parent.extension_request_denial(User.find(3))
+      assert_equal :due_date_derived, parent.extension_request_denial(User.find(2))
+
+      # A request filed before the subtask existed cannot be signed into the
+      # parent either: signing writes due_date, which the form no longer allows.
+      pending = IssueExtension.create!(:issue => parent, :user_id => 3, :approval_route => @route,
+                                       :status => IssueExtension::PENDING,
+                                       :previous_due_date => parent.due_date,
+                                       :new_due_date => (parent.due_date || Date.today) + 5,
+                                       :reason => 'x')
+      assert_not pending.signable_by?(User.find(2))
+    end
+  end
+
+  def test_a_tracker_without_a_due_date_takes_no_extension
+    chain!
+    tracker = @issue.tracker
+    tracker.core_fields = tracker.core_fields - ['due_date']
+    tracker.save!
+
+    assert_equal :due_date_disabled, issue.extension_request_denial(User.find(3))
+  end
+
+  # --- withdrawing: the way out of a request nobody can decide ----------------
+
+  # The review's scenario: the chain's only approver is the assignee, who may
+  # not write due_date. Nobody can approve or reject, and with a limit of one
+  # the stuck request would block every further request on the issue, the
+  # administrator's included.
+  def test_a_request_nobody_can_decide_can_be_withdrawn_and_frees_the_allowance
+    build_extension_route(:approvers => ['dynamic:assignee'])
+    lock_due_date_for_employees!
+    set_plugin_settings('max_extension_count' => '1')
+    request_extension
+    extension = IssueExtension.last
+    assert extension.pending?
+    assert_not extension.signable_by?(User.find(3))
+    assert_not extension.signable_by?(User.find(1))
+    assert_equal :limit_reached, issue.extension_request_denial(User.find(1))
+
+    @request.session[:user_id] = 3
+    post :withdraw, :params => {:issue_id => @issue.id, :id => extension.id}
+
+    assert_redirected_to "/issues/#{@issue.id}"
+    assert extension.reload.withdrawn?
+    assert_not extension.counts_toward_limit?
+    assert_nil issue.extension_request_denial(User.find(1)), 'the allowance is free again'
+  end
+
+  def test_an_administrator_may_withdraw_anyones_request
+    chain!
+    request_extension
+    @request.session[:user_id] = 1
+
+    post :withdraw, :params => {:issue_id => @issue.id, :id => IssueExtension.last.id}
+
+    assert IssueExtension.last.withdrawn?
+  end
+
+  def test_nobody_else_may_withdraw_it
+    chain!
+    request_extension
+    @request.session[:user_id] = 2   # the approver, not the requester
+
+    post :withdraw, :params => {:issue_id => @issue.id, :id => IssueExtension.last.id}
+
+    assert_response :forbidden
+    assert IssueExtension.last.pending?
+  end
+
+  def test_a_decided_request_cannot_be_withdrawn
+    chain!
+    request_extension
+    extension = IssueExtension.last
+    RedmineApprovalWorkflow::ExtensionApproval.decide(extension, User.find(2), :approve => true)
+    assert extension.reload.approved?
+
+    @request.session[:user_id] = 3
+    post :withdraw, :params => {:issue_id => @issue.id, :id => extension.id}
+
+    assert_response :forbidden
+    assert extension.reload.approved?
+  end
+
+  # --- stale requests ---------------------------------------------------------
+
+  # The deadline moved after the request was made. Approving it would write a
+  # date picked against a deadline that no longer exists.
+  def test_a_stale_request_is_refused_with_a_reason_and_can_still_be_rejected
+    chain!
+    request_extension(:days => 10)
+    extension = IssueExtension.last
+    @issue.update_columns(:due_date => @due + 40)   # a manager moved it meanwhile
+    assert extension.reload.stale?
+
+    @request.session[:user_id] = 2
+    post :approve, :params => {:issue_id => @issue.id, :id => extension.id}
+
+    assert_redirected_to "/issues/#{@issue.id}"
+    assert_match(/#{Regexp.escape(format_date(@due + 40))}/, flash[:error].to_s)
+    assert extension.reload.pending?
+    assert_equal @due + 40, issue.due_date, 'not rolled back to the requested date'
+
+    post :reject, :params => {:issue_id => @issue.id, :id => extension.id}
+    assert extension.reload.rejected?
+  end
+
+  def test_the_bell_gets_the_stale_reason_as_json
+    chain!
+    request_extension
+    extension = IssueExtension.last
+    @issue.update_columns(:due_date => @due - 3)
+    @request.session[:user_id] = 2
+    @request.headers['Accept'] = 'application/json'
+
+    post :approve, :params => {:issue_id => @issue.id, :id => extension.id}
+
+    assert_response :unprocessable_entity
+    assert_equal 'error', ActiveSupport::JSON.decode(response.body)['level']
+  end
+
+  def test_decide_itself_refuses_to_approve_a_stale_request
+    chain!
+    request_extension
+    extension = IssueExtension.last
+    @issue.update_columns(:due_date => @due + 1)
+
+    assert_nil RedmineApprovalWorkflow::ExtensionApproval.decide(extension.reload, User.find(2), :approve => true)
+  end
+
+  def format_date(date)
+    ::I18n.l(date)
+  end
+
   # --- the route lookup is memoised and reload clears it ----------------------
 
   def test_reload_forgets_the_route

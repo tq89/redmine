@@ -163,11 +163,15 @@
           </td>
           <td><%= h extension.reason %></td>
           <td class="buttons">
-            <%= button_to extension.approval_action_label,
-                          approve_issue_issue_extension_path(issue, extension),
-                          :method => :post,
-                          :data => {:confirm => l(:text_confirm_extension_approve,
-                                                  :date => format_date(extension.new_due_date))} %>
+            <% if extension.stale? %>
+              <span class="approval-reject-hint"><%= l(:label_extension_stale) %></span>
+            <% else %>
+              <%= button_to extension.approval_action_label,
+                            approve_issue_issue_extension_path(issue, extension),
+                            :method => :post,
+                            :data => {:confirm => l(:text_confirm_extension_approve,
+                                                    :date => format_date(extension.new_due_date))} %>
+            <% end %>
             <%= button_to l(:button_reject_extension),
                           reject_issue_issue_extension_path(issue, extension),
                           :method => :post,

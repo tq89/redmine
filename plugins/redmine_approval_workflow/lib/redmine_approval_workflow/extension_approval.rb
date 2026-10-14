@@ -13,6 +13,9 @@ module RedmineApprovalWorkflow
     # last step. Returns the signature, or nil when the user may not sign.
     def decide(extension, user, approve:, comments: nil)
       return nil unless extension.signable_by?(user)
+      # The deadline moved after the request was made; the date it asks for
+      # was picked against one that no longer exists. Refusing still works.
+      return nil if approve && extension.stale?
 
       step = extension.current_approval_step
       position = extension.approval_position

@@ -1023,6 +1023,53 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     assert_select '.extension-denied-hint', 0
   end
 
+  # Without a chain, a colleague who could not ask even with a chain must not
+  # be told to go and get one.
+  def test_without_a_chain_a_colleague_sees_neither_box_nor_hint
+    setup_employee_on_issue
+    @issue.update_columns(:assigned_to_id => 2)
+    Role.find(2).remove_permission!(:edit_issues)
+    log_user('dlopper', 'foo')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select '.issue-extensions', 0
+  end
+
+  def test_the_requester_sees_a_withdraw_button_on_their_pending_request
+    setup_employee_on_issue
+    build_extension_route(:approvers => ['user:2'])
+    extension = IssueExtension.create!(:issue => @issue, :user_id => 3,
+                                       :approval_route => ApprovalRoute.extension_for_issue(@issue),
+                                       :status => IssueExtension::PENDING,
+                                       :previous_due_date => @issue.due_date,
+                                       :new_due_date => @issue.due_date + 5, :reason => 'x')
+    log_user('dlopper', 'foo')
+
+    get "/issues/#{@issue.id}"
+
+    assert_select "form[action=?]", "/issues/#{@issue.id}/extensions/#{extension.id}/withdraw"
+  end
+
+  def test_a_stale_request_shows_why_and_offers_no_approve_button
+    setup_employee_on_issue
+    build_extension_route(:approvers => ['user:2'])
+    extension = IssueExtension.create!(:issue => @issue, :user_id => 3,
+                                       :approval_route => ApprovalRoute.extension_for_issue(@issue),
+                                       :status => IssueExtension::PENDING,
+                                       :previous_due_date => @issue.due_date,
+                                       :new_due_date => @issue.due_date + 5, :reason => 'x')
+    @issue.update_columns(:due_date => @issue.due_date + 20)
+    log_user('jsmith', 'jsmith')
+
+    get "/issues/#{@issue.id}"
+
+    assert_select '.issue-extensions .warning'
+    assert_select "form[action=?]", "/issues/#{@issue.id}/extensions/#{extension.id}/approve", 0
+    assert_select "form[action=?]", "/issues/#{@issue.id}/extensions/#{extension.id}/reject"
+  end
+
   # --- the bell's "your work came back" list ---------------------------------
 
   def test_bell_tells_the_assignee_their_work_was_refused

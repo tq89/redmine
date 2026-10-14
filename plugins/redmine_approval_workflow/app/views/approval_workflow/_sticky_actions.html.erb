@@ -6,7 +6,9 @@
   step = issue.current_approval_step
   can_approve = issue.can_approve?(User.current)
   can_reject = issue.can_reject_approval?(User.current)
-  extension = issue.issue_extensions.detect {|e| e.pending? && e.signable_by?(User.current)}
+  # A stale request is not offered for approval anywhere: the date it asks for
+  # was picked against a deadline that has since moved (IssueExtension#stale?).
+  extension = issue.issue_extensions.detect {|e| e.pending? && !e.stale? && e.signable_by?(User.current)}
   can_extend = issue.extendable_by?(User.current)
 %>
 <% if step || extension || can_extend %>

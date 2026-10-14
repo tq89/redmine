@@ -58,6 +58,24 @@ Ba chỗ được giữ chặt khi nới quy tắc:
   hết hạn.
 - **Đồng nghiệp không liên quan** không xin hộ được: hạn của người khác không
   phải việc của họ.
+- **Người duyệt** phải là người form công việc cho phép sửa Ngày hết hạn, hỏi
+  bằng đúng câu của Redmine (`safe_attribute?('due_date')`): có quyền sửa,
+  trường không khoá, loại công việc không tắt trường này, và ngày **không tính
+  từ công việc con**. Công việc cha có ngày tính tự động thì không nhận đơn gia
+  hạn: thứ cần thêm thời gian là các công việc con.
+
+Hai lối thoát cho đơn đang treo:
+
+- **Rút đơn**: người xin (hoặc quản trị viên) rút lại đơn chưa ai quyết. Đơn
+  đã rút không tính vào số lần gia hạn. Đây là lối ra cho đơn mà **không ai
+  trong lưu trình ký được** — ví dụ bước chỉ có ô "Người thực hiện" trong khi
+  người thực hiện không được sửa Ngày hết hạn. Trước đây đơn như vậy nằm chờ
+  mãi và chiếm luôn số lần gia hạn của công việc, kể cả với quản trị viên.
+- **Đơn lỗi thời**: nếu Ngày hết hạn bị đổi sau khi xin, đơn ghi "cũ → mới"
+  không còn đúng nữa. Duyệt nó sẽ ghi một ngày được chọn theo một hạn không
+  còn tồn tại — có thể kéo lùi một thay đổi sau đó, hoặc vượt quá số ngày tối
+  đa. Đơn như vậy được đánh dấu rõ, nút duyệt bị ẩn, và duyệt qua API/chuông
+  bị từ chối kèm lý do; từ chối và rút đơn vẫn làm được.
 
 Khi người có quyền "Gia hạn công việc" bị chặn vì một lý do họ hoặc quản lý có
 thể xử lý (hết số lần gia hạn; không có lưu trình mà Ngày hết hạn khoá hoặc
@@ -825,7 +843,7 @@ chỗ: trong journal và trong chính bản ghi chữ ký (hiện trên panel l�
 | Quyền | Tác dụng |
 |---|---|
 | Xem lưu trình ký | Hiện panel lưu trình trên trang công việc |
-| Gia hạn công việc | Cho phép bấm nút Gia hạn (còn phải qua quyền trên trường `due_date`) |
+| Gia hạn công việc | Cho phép xin gia hạn. Có lưu trình gia hạn: người thực hiện, tác giả hoặc người sửa được công việc trình ký được, không cần quyền trên trường `due_date`. Không có lưu trình: còn phải sửa được `due_date` (xem *Ai được xin gia hạn*) |
 | Quản lý lưu trình ký | Hiện thẻ "Lưu trình ký" trong Cài đặt dự án |
 | Đồng bộ lưu trình từ lịch sử | Hiện nút "Đồng bộ từ lịch sử" trên panel |
 

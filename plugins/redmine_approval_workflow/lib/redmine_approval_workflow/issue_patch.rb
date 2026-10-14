@@ -259,10 +259,10 @@ module RedmineApprovalWorkflow
       expected.present? && expected != status_id
     end
 
-    # Counts towards the per-issue limit. A rejected request is not an
-    # extension the issue got, so it does not use the allowance up.
+    # Counts towards the per-issue limit. A rejected or withdrawn request is
+    # not an extension the issue got, so it does not use the allowance up.
     def extension_count
-      issue_extensions.count {|extension| !extension.rejected?}
+      issue_extensions.count(&:counts_toward_limit?)
     end
 
     # The chain a NEW extension request on this issue would wait on, or nil when
@@ -304,15 +304,27 @@ module RedmineApprovalWorkflow
     #   requester's name, so the requester must be someone the issue form would
     #   let change due_date. Unchanged from before chains existed.
     def extension_request_denial(user = User.current, route: :lookup)
-      route = extension_route if route == :lookup
-
+      # Cheapest and most common refusals first. The route lookup is a query
+      # (or two), and this runs for every viewer of every issue page, so it
+      # waits until the user has turned out to be somebody who could ask.
       return :not_visible unless persisted? && visible?(user)
       # Covers the role permission, the module being enabled and the project
       # being active (the permission is not a read permission).
       return :no_permission unless user.allowed_to?(:extend_issue_due_date, project)
+      # Before anything the panel would explain: somebody else's deadline is
+      # not theirs to reopen, chain or no chain, and they get no hint about a
+      # limit or a missing route that would not change that.
+      return :not_involved unless extension_involved?(user)
+      # A tracker without a due date has nothing to extend. A parent whose
+      # dates are computed from its subtasks cannot be moved through the form,
+      # and an approved request would write a date the next subtask change
+      # overwrites -- the subtasks are what need more time.
+      return :due_date_disabled if disabled_core_fields.include?('due_date')
+      return :due_date_derived if dates_derived?
       return :limit_reached unless extension_allowance_left?
 
-      route ? extension_involvement_denial(user) : extension_write_denial(user)
+      route = extension_route if route == :lookup
+      route ? nil : extension_write_denial(user)
     end
 
     def extension_allowance_left?
@@ -320,32 +332,34 @@ module RedmineApprovalWorkflow
       limit.zero? || extension_count < limit
     end
 
-    private
+    # Someone the work concerns: whoever does it (the assignee, or a member of
+    # the group it is assigned to -- the same reading the "Người thực hiện"
+    # approver slot uses), whoever raised it, or anybody who could edit it
+    # anyway, so nobody who could ask before loses that. On the no-chain path
+    # the write rule below requires an editor regardless, so this narrows
+    # nothing there; it only keeps the panel quiet on colleagues' issues.
+    def extension_involved?(user)
+      return true if attributes_editable?(user)
+      return true if user.is_or_belongs_to?(assigned_to)
 
-    # Chain path: someone the work concerns -- whoever does it (the assignee, or
-    # a member of the group it is assigned to, the same reading the "Người thực
-    # hiện" approver slot uses), whoever raised it, or anybody who could edit it
-    # anyway, so nobody who could ask before loses that. Not every member who
-    # holds the permission: a colleague's deadline is not theirs to reopen.
-    def extension_involvement_denial(user)
-      # An anonymous visitor would otherwise be "the author" of every issue
-      # raised anonymously.
-      return :not_involved unless user.logged?
-      return nil if user.is_or_belongs_to?(assigned_to)
-      return nil if author_id == user.id
-      return nil if attributes_editable?(user)
-
-      :not_involved
+      # logged? guards only the author match: an anonymous visitor would
+      # otherwise be "the author" of every issue raised anonymously. An
+      # anonymous EDITOR is an editor, handled above like anyone else.
+      user.logged? && author_id == user.id
     end
 
-    # No-chain path: the request writes due_date at once, so it obeys the same
-    # field permissions the issue form does (Administration -> Workflow ->
-    # Fields permissions), checked explicitly because apply assigns due_date
-    # directly rather than through safe_attributes=, which would drop a
-    # read-only field silently.
+    private
+
+    # No-chain path: the request writes due_date at once, in the requester's
+    # name, so the requester must be someone the issue form would let change
+    # it. safe_attribute? is that exact question in Redmine's own terms: the
+    # edit right, the field permissions (Administration -> Workflow -> Fields
+    # permissions), a tracker that disables the field, and derived parent
+    # dates. Checked explicitly because apply assigns due_date directly rather
+    # than through safe_attributes=, which would drop it silently.
     def extension_write_denial(user)
       return :not_editable unless attributes_editable?(user)
-      return :due_date_readonly if read_only_attribute_names(user).include?('due_date')
+      return :due_date_readonly unless safe_attribute?('due_date', user)
 
       nil
     end

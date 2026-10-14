@@ -11,7 +11,12 @@ class IssueExtension < ApplicationRecord
   PENDING  = 'pending'
   APPROVED = 'approved'
   REJECTED = 'rejected'
-  STATUSES = [PENDING, APPROVED, REJECTED].freeze
+  # Taken back by whoever asked (or an administrator) before anyone decided.
+  # Without it a request nobody on the chain can sign -- the assignee slot
+  # when the assignee may not write due_date, say -- sat pending for good and
+  # kept using up the issue's allowance for everybody.
+  WITHDRAWN = 'withdrawn'
+  STATUSES = [PENDING, APPROVED, REJECTED, WITHDRAWN].freeze
 
   belongs_to :issue
   belongs_to :user
@@ -33,7 +38,7 @@ class IssueExtension < ApplicationRecord
   scope :rejected, lambda {where(:status => REJECTED)}
   # What counts against the per-issue allowance: granted, or still being asked
   # for. A refusal should not use somebody's quota up.
-  scope :counted, lambda {where.not(:status => REJECTED)}
+  scope :counted, lambda {where.not(:status => [REJECTED, WITHDRAWN])}
 
   class << self
     # Maximum number of days a single extension may add. 0 or blank means
@@ -69,6 +74,28 @@ class IssueExtension < ApplicationRecord
 
   def rejected?
     status == REJECTED
+  end
+
+  def withdrawn?
+    status == WITHDRAWN
+  end
+
+  # Granted, or still being asked for. A refusal or a withdrawal is not an
+  # extension the issue got.
+  def counts_toward_limit?
+    !rejected? && !withdrawn?
+  end
+
+  # The deadline moved after this was asked for. The request reads "old ->
+  # new", and an approver signs off on exactly that; approving it now would
+  # write a date picked against a deadline that no longer exists -- rolling
+  # back a later change, or landing further out than the day limit allows.
+  def stale?
+    pending? && issue.present? && previous_due_date != issue.due_date
+  end
+
+  def withdrawable_by?(user)
+    pending? && user.logged? && (user.id == user_id || user.admin?)
   end
 
   # The date an extension is measured from: the current deadline, or today when
@@ -111,15 +138,18 @@ class IssueExtension < ApplicationRecord
     step = current_approval_step
     return false if step.nil?
     # Whose turn it is comes first, deliberately. It is the narrowest question
-    # and it is answered entirely in memory, while read_only_attribute_names
+    # and it is answered entirely in memory, while the field-permission check
     # below costs a query per issue -- Redmine memoises field permissions per
     # Issue INSTANCE, and a list of requests carries one instance each. Asking
     # the expensive question first meant a query for every pending request in
     # the database on every page load. Same answer, cheaper order.
     return false unless step.signable_by?(user, issue, approval_step_signatures)
-    return false unless issue.attributes_editable?(user)
 
-    issue.read_only_attribute_names(user).exclude?('due_date')
+    # The final signature writes due_date, so every signer must be someone the
+    # issue form would let change it: the edit right, the field permissions,
+    # a tracker that keeps the field, and dates not derived from subtasks.
+    # safe_attribute? is that exact question in Redmine's own terms.
+    issue.safe_attribute?('due_date', user)
   end
 
   # The approver slot +user+ is filling on the pending step.

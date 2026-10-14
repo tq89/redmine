@@ -6,7 +6,7 @@ class IssueExtensionsController < ApplicationController
 
   before_action :find_extendable_issue
   before_action :authorize, :only => [:new, :create]
-  before_action :find_extension, :only => [:approve, :reject]
+  before_action :find_extension, :only => [:approve, :reject, :withdraw]
 
   def new
     @extension = build_extension(:new_due_date => default_new_due_date)
@@ -57,9 +57,31 @@ class IssueExtensionsController < ApplicationController
     decide(false)
   end
 
+  # Taking a request back before anyone decided it. The person who asked may,
+  # and so may an administrator; it is the way out for a request nobody on the
+  # chain is able to sign, which would otherwise sit pending and keep using up
+  # the issue's allowance.
+  def withdraw
+    return deny_access unless @extension.withdrawable_by?(User.current)
+
+    @extension.update_columns(:status => IssueExtension::WITHDRAWN, :decided_at => Time.current)
+    extension_reply(:notice, l(:notice_issue_extension_withdrawn))
+  end
+
   private
 
   def decide(approving)
+    # Said plainly rather than as a bare 403: the approver may sign, it is the
+    # request that no longer matches the issue. Refusing it, or the requester
+    # withdrawing and asking again from the current date, both still work.
+    if approving && @extension.stale? && @extension.signable_by?(User.current)
+      return extension_reply(:error,
+                             l(:error_issue_extension_stale,
+                               :requested => format_date(@extension.previous_due_date),
+                               :current => format_date(@issue.due_date)),
+                             :status => :unprocessable_entity)
+    end
+
     signature = RedmineApprovalWorkflow::ExtensionApproval.decide(
       @extension, User.current,
       :approve => approving, :comments => params[:comments]
@@ -77,15 +99,19 @@ class IssueExtensionsController < ApplicationController
         l(:notice_approval_signed)
       end
 
-    # The bell signs from a background post so the page it is open on stays
-    # put; it asks for JSON and shows the message in place. A flash set for it
-    # would instead turn up on some unrelated page later on.
+    extension_reply(:notice, notice)
+  end
+
+  # The bell acts from a background post so the page it is open on stays put;
+  # it asks for JSON and shows the message in place. A flash set for it would
+  # instead turn up on some unrelated page later on.
+  def extension_reply(level, message, status: :ok)
     respond_to do |format|
       format.html do
-        flash[:notice] = notice
+        flash[level] = message
         redirect_to issue_path(@issue)
       end
-      format.json {render :json => {:level => :notice, :message => notice}}
+      format.json {render :json => {:level => level, :message => message}, :status => status}
     end
   end
 

@@ -21,6 +21,7 @@ resources :issues, :only => [] do
     member do
       post :approve
       post :reject
+      post :withdraw
     end
   end
 end

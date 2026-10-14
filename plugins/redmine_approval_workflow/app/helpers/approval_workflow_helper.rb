@@ -53,6 +53,7 @@ module ApprovalWorkflowHelper
     case extension.status
     when IssueExtension::PENDING  then l(:label_extension_status_pending)
     when IssueExtension::REJECTED then l(:label_extension_status_rejected)
+    when IssueExtension::WITHDRAWN then l(:label_extension_status_withdrawn)
     else                               l(:label_extension_status_approved)
     end
   end

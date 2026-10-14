@@ -11,7 +11,8 @@
   # vanishing would leave them hunting for a button that was never going to
   # appear. :not_involved stays silent -- somebody else's deadline is not
   # theirs to reopen, and a hint on every colleague's issue would be noise.
-  extension_hint = extension_denial if [:limit_reached, :not_editable, :due_date_readonly].include?(extension_denial)
+  extension_hint = extension_denial if [:limit_reached, :not_editable, :due_date_readonly,
+                                        :due_date_derived].include?(extension_denial)
   show_extension = visible && (issue.issue_extensions.any? || extension_denial.nil? || extension_hint)
 %>
 <% if show_approval || show_extension %>
@@ -132,18 +133,41 @@
 
         <p class="info"><%= l(:text_extension_pending_hint) %></p>
 
-        <% if extension.signable_by?(User.current) %>
+        <% stale = extension.stale? %>
+        <% if stale %>
+          <%# The request reads "old -> new"; the old date is no longer the
+              deadline, so approving it would write a date picked against one
+              that no longer exists. Said here, before anyone presses a button. %>
+          <p class="warning"><%= l(:warning_issue_extension_stale,
+                                   :requested => extension.previous_due_date ? format_date(extension.previous_due_date) : l(:label_none),
+                                   :current => issue.due_date ? format_date(issue.due_date) : l(:label_none)) %></p>
+        <% end %>
+
+        <% can_sign = extension.signable_by?(User.current) %>
+        <% can_withdraw = extension.withdrawable_by?(User.current) %>
+        <% if can_sign || can_withdraw %>
           <p class="buttons">
-            <%= button_to extension.approval_action_label,
-                          approve_issue_issue_extension_path(issue, extension),
-                          :method => :post,
-                          :class => 'button-positive',
-                          :data => {:confirm => l(:text_confirm_extension_approve,
-                                                  :date => format_date(extension.new_due_date))} %>
-            <%= button_to l(:button_reject_extension),
-                          reject_issue_issue_extension_path(issue, extension),
-                          :method => :post,
-                          :data => {:confirm => l(:text_are_you_sure)} %>
+            <% if can_sign && !stale %>
+              <%= button_to extension.approval_action_label,
+                            approve_issue_issue_extension_path(issue, extension),
+                            :method => :post,
+                            :class => 'button-positive',
+                            :data => {:confirm => l(:text_confirm_extension_approve,
+                                                    :date => format_date(extension.new_due_date))} %>
+            <% end %>
+            <% if can_sign %>
+              <%= button_to l(:button_reject_extension),
+                            reject_issue_issue_extension_path(issue, extension),
+                            :method => :post,
+                            :data => {:confirm => l(:text_are_you_sure)} %>
+            <% end %>
+            <% if can_withdraw %>
+              <%= button_to l(:button_withdraw_extension),
+                            withdraw_issue_issue_extension_path(issue, extension),
+                            :method => :post,
+                            :class => 'extension-withdraw',
+                            :data => {:confirm => l(:text_confirm_extension_withdraw)} %>
+            <% end %>
           </p>
         <% end %>
       </div>

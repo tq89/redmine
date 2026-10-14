@@ -152,12 +152,19 @@
                 &rarr; <%= format_date extension.new_due_date %>
               </span>
               <span class="approval-bell-actions">
-                <%= button_to extension.approval_action_label,
-                              approve_issue_issue_extension_path(issue, extension),
-                              :method => :post,
-                              :class => 'approval-bell-sign',
-                              :data => {:confirm => l(:text_confirm_extension_approve,
-                                                      :date => format_date(extension.new_due_date))} %>
+                <% if extension.stale? %>
+                  <%# The deadline moved after the request; the only decisions
+                      left are on the issue page (reject, or the requester
+                      withdrawing), so the bell points there instead. %>
+                  <span class="approval-bell-failed"><%= l(:label_extension_stale) %></span>
+                <% else %>
+                  <%= button_to extension.approval_action_label,
+                                approve_issue_issue_extension_path(issue, extension),
+                                :method => :post,
+                                :class => 'approval-bell-sign',
+                                :data => {:confirm => l(:text_confirm_extension_approve,
+                                                        :date => format_date(extension.new_due_date))} %>
+                <% end %>
                 <%= link_to l(:label_issue_extension), issue_path(issue),
                             :class => 'approval-bell-detail' %>
               </span>
