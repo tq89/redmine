@@ -427,6 +427,97 @@ class ExtensionRequestRuleTest < Redmine::ControllerTest
     assert_nil RedmineApprovalWorkflow::ExtensionApproval.decide(extension.reload, User.find(2), :approve => true)
   end
 
+  # --- findings from the second adversarial round -----------------------------
+
+  # The withdrawal loaded the request while it was pending; the final approval
+  # committed before the withdrawal wrote. The write must not land: the
+  # extension was granted and has to keep counting toward the limit.
+  def test_a_withdrawal_that_lost_the_race_to_the_final_approval_changes_nothing
+    chain!
+    set_plugin_settings('max_extension_count' => '1')
+    request_extension(:days => 10)
+    seen_by_requester = IssueExtension.find(IssueExtension.last.id)   # pending, in memory
+    assert seen_by_requester.withdrawable_by?(User.find(3))
+
+    RedmineApprovalWorkflow::ExtensionApproval.decide(IssueExtension.find(seen_by_requester.id),
+                                                      User.find(2), :approve => true)
+
+    assert_not seen_by_requester.withdraw!, 'somebody decided first'
+    assert seen_by_requester.approved?
+    assert seen_by_requester.counts_toward_limit?
+    assert_equal @due + 10, issue.due_date
+    assert_equal :limit_reached, issue.extension_request_denial(User.find(3))
+  end
+
+  # The other order: the approver loaded it, the requester withdrew, then the
+  # approval ran. A request the requester was told is withdrawn must not be
+  # applied.
+  def test_an_approval_that_lost_the_race_to_a_withdrawal_applies_nothing
+    chain!
+    request_extension(:days => 10)
+    seen_by_approver = IssueExtension.find(IssueExtension.last.id)
+    assert seen_by_approver.signable_by?(User.find(2))
+
+    assert IssueExtension.find(seen_by_approver.id).withdraw!
+
+    assert_nil RedmineApprovalWorkflow::ExtensionApproval.decide(seen_by_approver, User.find(2), :approve => true)
+    assert IssueExtension.find(seen_by_approver.id).withdrawn?
+    assert_equal @due, issue.due_date
+    assert_equal 0, ApprovalSignature.where(:issue_extension_id => seen_by_approver.id).count
+  end
+
+  def test_the_approver_is_told_it_was_already_decided
+    chain!
+    request_extension
+    extension = IssueExtension.last
+    extension.withdraw!
+    # The approver's page was rendered before the withdrawal.
+    @request.session[:user_id] = 2
+    @request.headers['Accept'] = 'application/json'
+
+    post :approve, :params => {:issue_id => @issue.id, :id => extension.id}
+
+    assert_response :conflict
+    assert_equal ::I18n.t(:error_issue_extension_already_decided),
+                 ActiveSupport::JSON.decode(response.body)['message']
+  end
+
+  # A closed project is read-only for everybody; approving and rejecting are
+  # refused there, so withdrawing must be too.
+  def test_no_withdrawal_on_a_closed_project
+    chain!
+    request_extension
+    extension = IssueExtension.last
+    @issue.project.update_columns(:status => Project::STATUS_CLOSED)
+
+    assert_not extension.reload.withdrawable_by?(User.find(3))
+    assert_not extension.withdrawable_by?(User.find(1)), 'not the administrator either'
+    @request.session[:user_id] = 3
+    post :withdraw, :params => {:issue_id => @issue.id, :id => extension.id}
+
+    assert_response :forbidden
+    assert extension.reload.pending?
+  end
+
+  def test_the_stale_message_has_no_holes_when_a_date_is_missing
+    chain!
+    @issue.update_columns(:due_date => nil)
+    set_plugin_settings('max_extension_days' => '0')
+    @request.session[:user_id] = 3
+    post :create, :params => {:issue_id => @issue.id,
+                              :issue_extension => {:new_due_date => (Date.today + 10).to_s,
+                                                   :reason => 'Chờ vật tư'}}
+    extension = IssueExtension.last
+    assert_nil extension.previous_due_date
+    @issue.update_columns(:due_date => Date.today + 3)   # a manager set one meanwhile
+
+    @request.session[:user_id] = 2
+    post :approve, :params => {:issue_id => @issue.id, :id => extension.id}
+
+    assert_include ::I18n.t(:label_none), flash[:error].to_s
+    assert_no_match(/from\s+to|từ\s+sang/, flash[:error].to_s)
+  end
+
   def format_date(date)
     ::I18n.l(date)
   end

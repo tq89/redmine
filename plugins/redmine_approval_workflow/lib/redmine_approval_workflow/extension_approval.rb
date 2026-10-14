@@ -17,11 +17,21 @@ module RedmineApprovalWorkflow
       # was picked against one that no longer exists. Refusing still works.
       return nil if approve && extension.stale?
 
-      step = extension.current_approval_step
-      position = extension.approval_position
-
       signature = nil
       IssueExtension.transaction do
+        # Re-read the request under a row lock and ask again. The checks above
+        # looked at the copy this request loaded; a withdrawal or another
+        # approver may have decided it since. Without this, a request the
+        # requester was told is withdrawn could still be applied, or a granted
+        # extension end up marked withdrawn and stop counting toward the limit.
+        extension.lock!
+        extension.approval_signatures.reset
+        raise ActiveRecord::Rollback unless extension.signable_by?(user)
+        raise ActiveRecord::Rollback if approve && extension.stale?
+
+        step = extension.current_approval_step
+        position = extension.approval_position
+
         signature = ApprovalSignature.create!(
           :issue_id => extension.issue_id,
           :issue_extension_id => extension.id,
@@ -48,6 +58,8 @@ module RedmineApprovalWorkflow
                                    :decided_at => Time.current)
         end
       end
+
+      return nil if signature.nil?
 
       # Outside the transaction: a signature that is already committed must not
       # be undone because a mail server was unreachable.

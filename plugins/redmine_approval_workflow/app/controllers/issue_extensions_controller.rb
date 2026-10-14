@@ -63,8 +63,8 @@ class IssueExtensionsController < ApplicationController
   # the issue's allowance.
   def withdraw
     return deny_access unless @extension.withdrawable_by?(User.current)
+    return already_decided unless @extension.withdraw!
 
-    @extension.update_columns(:status => IssueExtension::WITHDRAWN, :decided_at => Time.current)
     extension_reply(:notice, l(:notice_issue_extension_withdrawn))
   end
 
@@ -77,8 +77,8 @@ class IssueExtensionsController < ApplicationController
     if approving && @extension.stale? && @extension.signable_by?(User.current)
       return extension_reply(:error,
                              l(:error_issue_extension_stale,
-                               :requested => format_date(@extension.previous_due_date),
-                               :current => format_date(@issue.due_date)),
+                               :requested => date_or_none(@extension.previous_due_date),
+                               :current => date_or_none(@issue.due_date)),
                              :status => :unprocessable_entity)
     end
 
@@ -87,6 +87,10 @@ class IssueExtensionsController < ApplicationController
       :approve => approving, :comments => params[:comments]
     )
     if signature.nil?
+      # Somebody decided or withdrew it between loading this page and pressing
+      # the button: say so, rather than a bare "access denied".
+      return already_decided unless @extension.reload.pending?
+
       return deny_access
     end
 
@@ -100,6 +104,14 @@ class IssueExtensionsController < ApplicationController
       end
 
     extension_reply(:notice, notice)
+  end
+
+  def already_decided
+    extension_reply(:error, l(:error_issue_extension_already_decided), :status => :conflict)
+  end
+
+  def date_or_none(date)
+    date ? format_date(date) : l(:label_none)
   end
 
   # The bell acts from a background post so the page it is open on stays put;

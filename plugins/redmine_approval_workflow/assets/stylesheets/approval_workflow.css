@@ -78,6 +78,7 @@ ol.extension-steps .approval-rejected { color: #b00; font-weight: bold; }
 .extension-status-pending  { background: #fdf3d8; color: #7a5c00; border: 1px solid #d9c89a; }
 .extension-status-approved { background: #e6f2e6; color: #2a7f2a; border: 1px solid #9fcf9f; }
 .extension-status-rejected { background: #fbe6e6; color: #b00;    border: 1px solid #e0a0a0; }
+.extension-status-withdrawn { background: #f0f0f0; color: #666;   border: 1px solid #ccc; }
 
 table.approval-step-form input[type=text] { width: 100%; }
 table.approval-step-form td { vertical-align: top; }

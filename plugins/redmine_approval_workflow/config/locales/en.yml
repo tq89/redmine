@@ -138,6 +138,7 @@ en:
   label_extension_stale: "Due date changed since the request -- cannot be approved; open the issue"
   text_confirm_extension_withdraw: "Withdraw this extension request? It will stop waiting for approval and no longer count toward the limit."
   notice_issue_extension_withdrawn: "The extension request was withdrawn."
+  error_issue_extension_already_decided: "This request was decided (approved, rejected or withdrawn) just before your action. Reload the page to see where it stands."
   warning_issue_extension_stale: "The due date changed after this was requested (it was %{requested} then, it is %{current} now). It can no longer be approved -- an approver can reject it, or the requester can withdraw it and ask again from the current date."
   error_issue_extension_stale: "Cannot approve: the due date changed from %{requested} to %{current} after this was requested. Reject it, or have the requester withdraw it and ask again."
   label_pending_extension_plural: "Extension requests awaiting my approval"

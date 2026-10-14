@@ -140,6 +140,7 @@ vi:
   label_extension_stale: "Hạn đã đổi sau khi xin — không duyệt được, xem công việc"
   text_confirm_extension_withdraw: "Rút lại đơn xin gia hạn này? Đơn sẽ không còn chờ duyệt và không tính vào số lần gia hạn."
   notice_issue_extension_withdrawn: "Đã rút đơn xin gia hạn."
+  error_issue_extension_already_decided: "Đơn này vừa được xử lý (duyệt, từ chối hoặc rút) trước thao tác của bạn. Tải lại trang để xem trạng thái hiện tại."
   warning_issue_extension_stale: "Ngày hết hạn đã đổi sau khi xin gia hạn (lúc xin là %{requested}, nay là %{current}). Đơn này không duyệt được nữa — người duyệt có thể từ chối, hoặc người xin rút đơn và xin lại từ ngày hiện tại."
   error_issue_extension_stale: "Không duyệt được: Ngày hết hạn đã đổi từ %{requested} sang %{current} sau khi xin. Hãy từ chối đơn này, hoặc để người xin rút đơn và xin lại."
   label_pending_extension_plural: "Đơn gia hạn chờ tôi duyệt"

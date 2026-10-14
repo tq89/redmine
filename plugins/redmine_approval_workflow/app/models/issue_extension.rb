@@ -94,8 +94,25 @@ class IssueExtension < ApplicationRecord
     pending? && issue.present? && previous_due_date != issue.due_date
   end
 
+  # The requester, or an administrator. Not on a closed or archived project, or
+  # with the module switched off: Redmine keeps those read-only for everybody,
+  # and approving or rejecting is refused there too.
   def withdrawable_by?(user)
-    pending? && user.logged? && (user.id == user_id || user.admin?)
+    return false unless pending? && user.logged?
+    return false unless issue&.project&.allows_to?(:extend_issue_due_date)
+
+    user.id == user_id || user.admin?
+  end
+
+  # Takes the request back only if it is still pending at the moment of the
+  # write. A final approval landing between the check and the write would
+  # otherwise be overwritten: a deadline already moved, marked withdrawn, no
+  # longer counted toward the limit. Returns false when somebody decided first.
+  def withdraw!
+    updated = self.class.where(:id => id, :status => PENDING).
+              update_all(:status => WITHDRAWN, :decided_at => Time.current)
+    reload
+    updated == 1
   end
 
   # The date an extension is measured from: the current deadline, or today when
