@@ -142,6 +142,9 @@ vi:
   text_confirm_extension_approve: "Duyệt gia hạn tới ngày %{date}?"
 
   button_extend_due_date: "Gia hạn"
+  text_extension_denied_limit_reached: "Công việc này đã dùng hết %{count} lần gia hạn được phép (tính cả đơn đang chờ duyệt)."
+  text_extension_denied_not_editable: "Loại công việc này chưa có lưu trình duyệt gia hạn, nên gia hạn sẽ áp dụng ngay — mà bạn không có quyền sửa công việc này. Nhờ quản lý tạo lưu trình gia hạn (Cài đặt dự án → Lưu trình ký) hoặc gia hạn giúp bạn."
+  text_extension_denied_due_date_readonly: "Loại công việc này chưa có lưu trình duyệt gia hạn, nên gia hạn sẽ áp dụng ngay — mà Ngày hết hạn đang khoá với bạn ở trạng thái này. Nhờ quản lý tạo lưu trình gia hạn (Cài đặt dự án → Lưu trình ký) để bạn trình ký, hoặc gia hạn giúp bạn."
   button_approve_extension: "Duyệt gia hạn"
   button_reject_extension: "Từ chối"
 

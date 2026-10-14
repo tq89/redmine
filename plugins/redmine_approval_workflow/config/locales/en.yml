@@ -140,6 +140,9 @@ en:
   text_confirm_extension_approve: "Approve the extension to %{date}?"
 
   button_extend_due_date: "Extend"
+  text_extension_denied_limit_reached: "This issue has used up its %{count} allowed extensions (pending requests included)."
+  text_extension_denied_not_editable: "This tracker has no extension approval route, so an extension would apply at once -- and you may not edit this issue. Ask a manager to add an extension route (Project settings -> Approval routes) or to extend it for you."
+  text_extension_denied_due_date_readonly: "This tracker has no extension approval route, so an extension would apply at once -- and the due date is read-only for you at this status. Ask a manager to add an extension route (Project settings -> Approval routes) so you can submit it for signing, or to extend it for you."
   button_approve_extension: "Approve extension"
   button_reject_extension: "Reject"
 

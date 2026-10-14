@@ -10,6 +10,9 @@ class IssueExtensionsController < ApplicationController
 
   def new
     @extension = build_extension(:new_due_date => default_new_due_date)
+    # The same gate as create. Checking only the permission here rendered a
+    # form that create would then refuse.
+    deny_access unless requester_allowed?
   end
 
   def create
@@ -18,9 +21,7 @@ class IssueExtensionsController < ApplicationController
       :reason => params.dig(:issue_extension, :reason).presence
     )
 
-    unless @issue.extendable_by?(User.current)
-      return deny_access
-    end
+    return deny_access unless requester_allowed?
 
     if @extension.valid?
       IssueExtension.transaction do
@@ -103,18 +104,24 @@ class IssueExtensionsController < ApplicationController
     render_404
   end
 
+  # Judges the requester against the path THIS request will take: the route it
+  # was built with. A route switched off between loading the form and posting
+  # it means an immediate write, and the strict rule then applies -- the check
+  # can never pass on the chain rule and then apply without a chain.
+  def requester_allowed?
+    @issue.extendable_by?(User.current, :route => @extension.approval_route)
+  end
+
   def build_extension(attrs)
     IssueExtension.new(attrs).tap do |extension|
       extension.issue = @issue
       extension.user = User.current
       extension.previous_due_date = @issue.due_date
-      route = ApprovalRoute.extension_for_issue(@issue)
-      if route && route.step_count > 0
-        extension.approval_route = route
-        extension.status = IssueExtension::PENDING
-      else
-        extension.status = IssueExtension::APPROVED
-      end
+      # Issue#extension_route is also what the request gate reads, so the rule
+      # a requester is judged by and the path the request takes are the same.
+      route = @issue.extension_route
+      extension.approval_route = route
+      extension.status = route ? IssueExtension::PENDING : IssueExtension::APPROVED
     end
   end
 

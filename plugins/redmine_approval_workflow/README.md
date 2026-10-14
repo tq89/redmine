@@ -26,25 +26,44 @@ một chữ ký trái phép sẽ trông như thành công trong khi trạng thá
 Hệ quả: muốn cấp quyền ký bước "Giám đốc duyệt" cho vai trò nào, chỉ cần cho
 vai trò đó quyền chuyển sang trạng thái tương ứng trong luồng công việc.
 
-## Quyền gia hạn cũng lấy từ luồng công việc
+## Ai được xin gia hạn
 
-Ký duyệt bám vào *chuyển trạng thái*; gia hạn ghi vào trường `due_date` nên nó
-bám vào **quyền trên trường** — tab *Quyền trên trường* trong
-**Quản trị → Luồng công việc**. Đặt `due_date` là **Chỉ đọc** cho một vai trò ở
-một trạng thái nào đó thì vai trò đó không gia hạn được ở trạng thái ấy.
+Mọi trường hợp đều cần: thấy được công việc, có quyền **"Gia hạn công việc"**
+trong vai trò (Quản trị → Vai trò và Quyền hạn → nhóm *Lưu trình ký & Gia hạn*; quản
+trị viên được miễn nên **chỉ quản trị viên thấy** là dấu hiệu chưa tick quyền
+này), dự án bật mô-đun, và chưa dùng hết số lần gia hạn.
 
-Điều kiện đầy đủ để gia hạn:
+Phần còn lại phụ thuộc vào việc **đơn gia hạn làm gì**:
 
-```ruby
-issue.attributes_editable?(user) &&
-  user.allowed_to?(:extend_issue_due_date, project) &&
-  !issue.read_only_attribute_names(user).include?('due_date') &&
-  (số lần gia hạn chưa vượt giới hạn)
-```
+| | Có lưu trình gia hạn | Không có lưu trình |
+|---|---|---|
+| Đơn làm gì | tạo đơn **chờ duyệt**, chưa đổi gì cả | **ghi ngay** Ngày hết hạn mới |
+| Người xin cần | là **người thực hiện** (hoặc thành viên nhóm được giao), **tác giả**, hoặc người sửa được công việc | sửa được công việc **và** Ngày hết hạn không bị khoá (*Quyền trên trường* trong Quản trị → Luồng công việc) ở trạng thái hiện tại |
+| Ai bảo vệ việc ghi | chữ ký cuối cùng: **người duyệt** phải sửa được công việc và Ngày hết hạn không khoá với họ | chính người xin |
 
-Kiểm tra `read_only_attribute_names` phải làm tường minh vì plugin gán
-`due_date` trực tiếp chứ không qua `safe_attributes=` — cùng lý do như với
-status.
+Bản đầu đòi người xin phải sửa được Ngày hết hạn **ở cả hai cột**. Từ khi gia
+hạn có lưu trình ký, điều đó sai ở cột trái: xin gia hạn không ghi gì cả, mà
+những người cần xin nhất lại chính là những người luồng công việc **không** cho
+tự dời hạn. Kết quả là nhân viên không thấy mục gia hạn để trình ký.
+
+Ba chỗ được giữ chặt khi nới quy tắc:
+
+- **Đường đi được quyết một lần** (`Issue#extension_route`, lưu trình có ít
+  nhất một bước) và controller chấm người xin theo **đúng lưu trình mà đơn được
+  tạo với nó**. Lưu trình bị tắt giữa lúc mở form và lúc gửi thì đơn sẽ ghi
+  ngay, nên quy tắc chặt được áp dụng: không bao giờ có chuyện "qua cửa theo
+  quy tắc lưu trình rồi lại ghi ngay không qua lưu trình".
+- **Người chỉ được xin thì không tự duyệt được đơn của mình**: kể cả khi họ có
+  tên trong lưu trình (ô Người thực hiện chẳng hạn), ký vẫn đòi sửa được Ngày
+  hết hạn.
+- **Đồng nghiệp không liên quan** không xin hộ được: hạn của người khác không
+  phải việc của họ.
+
+Khi người có quyền "Gia hạn công việc" bị chặn vì một lý do họ hoặc quản lý có
+thể xử lý (hết số lần gia hạn; không có lưu trình mà Ngày hết hạn khoá hoặc
+không sửa được công việc), panel **nói lý do** thay vì để cả mục biến mất —
+cùng bài học với nút Từ chối. Trường hợp "không liên quan" thì im lặng, để
+không hiện lời nhắc trên mọi công việc của đồng nghiệp.
 
 ## Lưu trình ký cho gia hạn
 

@@ -19,6 +19,7 @@ module RedmineApprovalWorkflow
         # not on the route's own steps -- a route edited in the meantime must
         # not be answered from a memo either.
         remove_instance_variable(:@approval_decisions) if defined?(@approval_decisions)
+        remove_instance_variable(:@extension_route) if defined?(@extension_route)
         super
       end
     end
@@ -264,18 +265,89 @@ module RedmineApprovalWorkflow
       issue_extensions.count {|extension| !extension.rejected?}
     end
 
-    def extendable_by?(user = User.current)
-      return false unless attributes_editable?(user)
-      return false unless user.allowed_to?(:extend_issue_due_date, project)
-      # Mirrors how signing follows status transitions: extending writes
-      # due_date, so it obeys the field permissions set per role, tracker and
-      # status in Administration -> Workflow -> Fields permissions. The check is
-      # explicit because the extension assigns due_date directly rather than
-      # through safe_attributes=, which would drop a read-only field silently.
-      return false if read_only_attribute_names(user).include?('due_date')
+    # The chain a NEW extension request on this issue would wait on, or nil when
+    # a request would be applied on the spot. A route with no steps applies on
+    # the spot too. This is the one place that decision is made: the request
+    # gate and IssueExtensionsController#build_extension both read it, so the
+    # rule a requester is judged by and the path the request then takes cannot
+    # disagree.
+    def extension_route
+      return @extension_route if defined?(@extension_route)
 
+      route = ApprovalRoute.extension_for_issue(self)
+      @extension_route = (route if route && route.step_count > 0)
+    end
+
+    # May +user+ press "Gia hạn" on this issue? See extension_request_denial.
+    #
+    # +route+ defaults to looking it up. The controller passes the route the
+    # request was actually built with, so a route switched off between loading
+    # the form and submitting it falls back to the strict rule rather than
+    # letting a routed-path requester through to an immediate write.
+    def extendable_by?(user = User.current, route: :lookup)
+      extension_request_denial(user, :route => route).nil?
+    end
+
+    # nil when +user+ may request an extension, otherwise why not -- the panel
+    # turns the reason into a hint instead of leaving the section to vanish.
+    #
+    # What a requester needs depends on what the request DOES:
+    #
+    # * With an extension chain the request writes nothing. It files a pending
+    #   request; only the final approval writes due_date, through
+    #   ExtensionApproval.apply, and IssueExtension#signable_by? checks THAT
+    #   signer's edit right and due_date field permission. So the requester
+    #   needs neither. Demanding them was the bug behind "nhân viên không thấy
+    #   mục gia hạn": the people who most need to ask for more time are exactly
+    #   the ones the workflow does not let move the deadline themselves.
+    # * Without a chain the request IS the write, applied at once in the
+    #   requester's name, so the requester must be someone the issue form would
+    #   let change due_date. Unchanged from before chains existed.
+    def extension_request_denial(user = User.current, route: :lookup)
+      route = extension_route if route == :lookup
+
+      return :not_visible unless persisted? && visible?(user)
+      # Covers the role permission, the module being enabled and the project
+      # being active (the permission is not a read permission).
+      return :no_permission unless user.allowed_to?(:extend_issue_due_date, project)
+      return :limit_reached unless extension_allowance_left?
+
+      route ? extension_involvement_denial(user) : extension_write_denial(user)
+    end
+
+    def extension_allowance_left?
       limit = IssueExtension.max_count
       limit.zero? || extension_count < limit
+    end
+
+    private
+
+    # Chain path: someone the work concerns -- whoever does it (the assignee, or
+    # a member of the group it is assigned to, the same reading the "Người thực
+    # hiện" approver slot uses), whoever raised it, or anybody who could edit it
+    # anyway, so nobody who could ask before loses that. Not every member who
+    # holds the permission: a colleague's deadline is not theirs to reopen.
+    def extension_involvement_denial(user)
+      # An anonymous visitor would otherwise be "the author" of every issue
+      # raised anonymously.
+      return :not_involved unless user.logged?
+      return nil if user.is_or_belongs_to?(assigned_to)
+      return nil if author_id == user.id
+      return nil if attributes_editable?(user)
+
+      :not_involved
+    end
+
+    # No-chain path: the request writes due_date at once, so it obeys the same
+    # field permissions the issue form does (Administration -> Workflow ->
+    # Fields permissions), checked explicitly because apply assigns due_date
+    # directly rather than through safe_attributes=, which would drop a
+    # read-only field silently.
+    def extension_write_denial(user)
+      return :not_editable unless attributes_editable?(user)
+      return :due_date_readonly if read_only_attribute_names(user).include?('due_date')
+
+      nil
     end
   end
 end

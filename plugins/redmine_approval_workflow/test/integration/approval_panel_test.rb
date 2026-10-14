@@ -949,6 +949,80 @@ class ApprovalPanelTest < Redmine::IntegrationTest
     assert_equal 6, step.reject_status_id
   end
 
+  # --- who sees "Gia hạn" -----------------------------------------------------
+
+  # The report: an employee whose deadline is the manager's to set saw no
+  # extension section at all, chain or not.
+  def setup_employee_on_issue
+    @issue.update_columns(:assigned_to_id => 3, :due_date => @issue.start_date + 30)
+    Role.find(2).add_permission!(:extend_issue_due_date)
+    WorkflowPermission.create!(:tracker_id => @issue.tracker_id, :role_id => 2,
+                               :old_status_id => @issue.status_id,
+                               :field_name => 'due_date', :rule => 'readonly')
+  end
+
+  def extend_link
+    "a[href=?]"
+  end
+
+  def test_an_employee_with_a_locked_due_date_sees_the_button_when_a_chain_exists
+    setup_employee_on_issue
+    build_extension_route(:approvers => ['user:2'])
+    log_user('dlopper', 'foo')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select extend_link, "/issues/#{@issue.id}/extensions/new"
+    assert_select '.extension-denied-hint', 0
+  end
+
+  # Without a chain the request would write the locked date at once. The
+  # button stays away -- but the box says why, instead of simply not being
+  # there.
+  def test_without_a_chain_the_employee_is_told_why_there_is_no_button
+    setup_employee_on_issue
+    log_user('dlopper', 'foo')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select extend_link, "/issues/#{@issue.id}/extensions/new", 0
+    assert_select '.issue-extensions .extension-denied-hint',
+                  :text => /#{Regexp.escape(::I18n.t(:text_extension_denied_due_date_readonly)[0, 30])}/
+  end
+
+  def test_a_used_up_allowance_is_explained
+    setup_employee_on_issue
+    build_extension_route(:approvers => ['user:2'])
+    set_plugin_settings('max_extension_count' => '1')
+    IssueExtension.create!(:issue => @issue, :user_id => 3, :status => IssueExtension::APPROVED,
+                           :previous_due_date => @issue.due_date,
+                           :new_due_date => @issue.due_date + 5, :reason => 'x')
+    log_user('dlopper', 'foo')
+
+    get "/issues/#{@issue.id}"
+
+    assert_select extend_link, "/issues/#{@issue.id}/extensions/new", 0
+    assert_select '.extension-denied-hint', :text => /1/
+  end
+
+  # Somebody else's work: nothing to explain, and a hint on every colleague's
+  # issue would only be noise.
+  def test_a_colleague_sees_neither_button_nor_hint
+    setup_employee_on_issue
+    build_extension_route(:approvers => ['user:2'])
+    @issue.update_columns(:assigned_to_id => 2)
+    Role.find(2).remove_permission!(:edit_issues)
+    log_user('dlopper', 'foo')
+
+    get "/issues/#{@issue.id}"
+
+    assert_response :success
+    assert_select '.issue-extensions', 0
+    assert_select '.extension-denied-hint', 0
+  end
+
   # --- the bell's "your work came back" list ---------------------------------
 
   def test_bell_tells_the_assignee_their_work_was_refused

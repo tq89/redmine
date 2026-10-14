@@ -4,7 +4,15 @@
   visible = issue.present? && issue.persisted?
   show_approval = visible && issue.approval_route? &&
                   User.current.allowed_to?(:view_approval_workflow, issue.project)
-  show_extension = visible && (issue.issue_extensions.any? || issue.extendable_by?(User.current))
+  # nil when the user may ask for more time, otherwise why not. Asked once
+  # here: the box, the button and the hint all depend on it.
+  extension_denial = visible ? issue.extension_request_denial(User.current) : :not_visible
+  # Reasons worth saying out loud: the user holds the permission and the box
+  # vanishing would leave them hunting for a button that was never going to
+  # appear. :not_involved stays silent -- somebody else's deadline is not
+  # theirs to reopen, and a hint on every colleague's issue would be noise.
+  extension_hint = extension_denial if [:limit_reached, :not_editable, :due_date_readonly].include?(extension_denial)
+  show_extension = visible && (issue.issue_extensions.any? || extension_denial.nil? || extension_hint)
 %>
 <% if show_approval || show_extension %>
 <%# One wrapper so both boxes travel together when the script below moves them. %>
@@ -171,12 +179,14 @@
       </table>
     <% end %>
 
-    <% if issue.extendable_by?(User.current) %>
+    <% if extension_denial.nil? %>
       <p class="buttons">
         <%= link_to sprite_icon('time-add', l(:button_extend_due_date)),
                     new_issue_issue_extension_path(issue),
                     :class => 'icon icon-time-add' %>
       </p>
+    <% elsif extension_hint %>
+      <p class="approval-reject-hint extension-denied-hint"><%= l(:"text_extension_denied_#{extension_hint}", :count => IssueExtension.max_count) %></p>
     <% end %>
   </div>
 <% end %>
